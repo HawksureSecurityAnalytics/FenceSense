@@ -13,7 +13,7 @@ const { height: SH } = Dimensions.get('window');
 const SNAP = 24;
 const STATUS_H = Platform.OS==='android' ? (StatusBar.currentHeight||0) : 0;
 const TOP_BAR_H = 48;
-const BOTTOM_BAR_H = 116;
+const BOTTOM_BAR_H = 148;
 const CANVAS_H = SH - STATUS_H - TOP_BAR_H - BOTTOM_BAR_H;
 
 const FENCE_TYPES: {key:FenceType;label:string}[] = [
@@ -404,7 +404,7 @@ const styles = StyleSheet.create({
     backgroundColor:colors.bgPanel,paddingHorizontal:8,paddingVertical:4,alignItems:'center'},
   scoreNum:{fontFamily:'monospace',fontSize:16,fontWeight:'bold'},
   scoreLbl:{fontFamily:'monospace',fontSize:6,color:colors.textDim},
-  bottomBar:{height:BOTTOM_BAR_H,backgroundColor:colors.bgPanel,borderTopWidth:1,
+  bottomBar:{height:BOTTOM_BAR_H, paddingBottom:12,backgroundColor:colors.bgPanel,borderTopWidth:1,
     borderTopColor:colors.border,paddingHorizontal:4,paddingTop:4,paddingBottom:4,gap:4},
   row:{flexDirection:'row',alignItems:'center',gap:3},
   toolBtn:{alignItems:'center',paddingHorizontal:7,paddingVertical:3,borderRadius:4,
