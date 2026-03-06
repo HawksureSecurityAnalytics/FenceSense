@@ -9,26 +9,28 @@ import { validateFence } from '../engine/validator';
 import { scheduleAutoSave } from '../storage/projects';
 import FenceCanvas from '../components/FenceCanvas';
 
-const { height: SH, width: SW } = Dimensions.get('window');
+const { height: SH } = Dimensions.get('window');
 const SNAP = 24;
-const STATUS_H = Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0;
+const STATUS_H = Platform.OS==='android' ? (StatusBar.currentHeight||0) : 0;
 const TOP_BAR_H = 48;
-const BOTTOM_BAR_H = 100;
+const BOTTOM_BAR_H = 116;
 const CANVAS_H = SH - STATUS_H - TOP_BAR_H - BOTTOM_BAR_H;
 
 const FENCE_TYPES: {key:FenceType;label:string}[] = [
   {key:'agricultural',label:'Agri'},
-  {key:'security',label:'Sec'},
-  {key:'game',label:'Game'},
-  {key:'wildlife',label:'Wild'},
+  {key:'security',    label:'Sec'},
+  {key:'game',        label:'Game'},
+  {key:'wildlife',    label:'Wild'},
 ];
 
 const WIRE_TYPES: {key:WireType;label:string;color:string}[] = [
-  {key:'hot',          label:'HT',      color:colors.hot},
-  {key:'earth',        label:'Earth',   color:colors.earth},
-  {key:'bridge_hot',   label:'HT Br',   color:colors.bridgeHot},
-  {key:'bridge_earth', label:'E Br',    color:colors.bridgeEarth},
+  {key:'hot',          label:'HT',    color:colors.hot},
+  {key:'earth',        label:'Earth', color:colors.earth},
+  {key:'bridge_hot',   label:'HT Br', color:colors.bridgeHot},
+  {key:'bridge_earth', label:'E Br',  color:colors.bridgeEarth},
 ];
+
+const STRAND_OPTIONS = [1,3,5,7,12];
 
 const COMPONENTS: {key:ComponentType;label:string;sub:string;color:string}[] = [
   {key:'energizer',   label:'Energizer',   sub:'Power source',  color:colors.amber},
@@ -44,13 +46,13 @@ interface Props {
 }
 
 export default function DesignScreen({ project, onProjectUpdate }: Props) {
-  const [nodes, setNodes]   = useState<FenceNode[]>(project.nodes);
-  const [wires, setWires]   = useState<FenceWire[]>(project.wires);
-  const [fenceType, setFT]  = useState<FenceType>(project.fenceType);
+  const [nodes, setNodes] = useState<FenceNode[]>(project.nodes);
+  const [wires, setWires] = useState<FenceWire[]>(project.wires);
+  const [fenceType, setFT] = useState<FenceType>(project.fenceType);
   const [canvasState, setCS] = useState<CanvasState>({
-    tool:'pan', wireMode:'hot', pendingComponent:null,
-    selectedNodeId:null, selectedWireId:null, wireStart:null,
-    pan:{x:20,y:20}, scale:1,
+    tool:'pan', wireMode:'hot', strandCount:3,
+    pendingComponent:null, selectedNodeId:null, selectedWireId:null,
+    wireStart:null, pan:{x:20,y:20}, scale:1,
   });
   const [validationResult, setVR] = useState<any>(null);
   const [showValidation, setShowV] = useState(false);
@@ -62,13 +64,13 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
   nodesRef.current = nodes;
   wiresRef.current = wires;
 
-  const sync = useCallback((n: FenceNode[], w: FenceWire[], ft: FenceType) => {
-    const updated = {...project, nodes:n, wires:w, fenceType:ft, updatedAt:Date.now()};
+  const sync = useCallback((n:FenceNode[], w:FenceWire[], ft:FenceType) => {
+    const updated = {...project,nodes:n,wires:w,fenceType:ft,updatedAt:Date.now()};
     scheduleAutoSave(updated);
     onProjectUpdate(updated);
-  }, [project, onProjectUpdate]);
+  },[project,onProjectUpdate]);
 
-  const handlePlaceNode = useCallback((type: ComponentType, x: number, y: number) => {
+  const handlePlaceNode = useCallback((type:ComponentType, x:number, y:number) => {
     const def = COMPONENTS.find(c=>c.key===type);
     const count = nodesRef.current.filter(n=>n.type===type).length+1;
     const node: FenceNode = {
@@ -77,31 +79,27 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
     };
     const next = [...nodesRef.current, node];
     setNodes(next); sync(next, wiresRef.current, fenceType);
-  }, [fenceType, sync]);
+  },[fenceType,sync]);
 
-  const handleWirePoint = useCallback((x: number, y: number) => {
-    setCS(prev => {
-      if (!prev.wireStart) return {...prev, wireStart:{x,y}};
-      const {wireStart, wireMode} = prev;
-      if (Math.abs(x-wireStart.x)>4 || Math.abs(y-wireStart.y)>4) {
-        const len = Math.round(Math.hypot(x-wireStart.x, y-wireStart.y)/SNAP*2);
-        const wire: FenceWire = {
-          id:`w_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
-          type:wireMode, x1:wireStart.x, y1:wireStart.y, x2:x, y2:y, lengthMeters:len,
-        };
-        const next = [...wiresRef.current, wire];
-        setWires(next); sync(nodesRef.current, next, fenceType);
-      }
-      return {...prev, wireStart:{x,y}};
-    });
-  }, [fenceType, sync]);
+  const handleWireDraw = useCallback((x1:number,y1:number,x2:number,y2:number) => {
+    const {wireMode, strandCount} = canvasState;
+    const len = Math.round(Math.hypot(x2-x1,y2-y1)/SNAP*2);
+    const wire: FenceWire = {
+      id:`w_${Date.now()}_${Math.random().toString(36).slice(2,5)}`,
+      type:wireMode, x1, y1, x2, y2,
+      lengthMeters:len,
+      strandCount: wireMode==='hot'||wireMode==='earth' ? strandCount : 1,
+    };
+    const next = [...wiresRef.current, wire];
+    setWires(next); sync(nodesRef.current, next, fenceType);
+  },[canvasState, fenceType, sync]);
 
-  const handleMoveNode = useCallback((id: string, x: number, y: number) => {
-    setNodes(prev => {
+  const handleMoveNode = useCallback((id:string,x:number,y:number) => {
+    setNodes(prev=>{
       const node = prev.find(n=>n.id===id);
-      const updated = prev.map(n => n.id===id ? {...n,x,y} : n);
+      const updated = prev.map(n=>n.id===id?{...n,x,y}:n);
       if (node) {
-        setWires(pw => pw.map(w => {
+        setWires(pw=>pw.map(w=>{
           const near=(a:number,b:number)=>Math.abs(a-b)<40;
           if (near(w.x1,node.x)&&near(w.y1,node.y)) return {...w,x1:x,y1:y};
           if (near(w.x2,node.x)&&near(w.y2,node.y)) return {...w,x2:x,y2:y};
@@ -110,74 +108,73 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
       }
       return updated;
     });
-  }, []);
+  },[]);
 
-  const handleDeleteNode = useCallback((id: string) => {
+  const handleDeleteNode = useCallback((id:string)=>{
     const next = nodesRef.current.filter(n=>n.id!==id);
-    setNodes(next); sync(next, wiresRef.current, fenceType);
+    setNodes(next); sync(next,wiresRef.current,fenceType);
     setCS(p=>({...p,selectedNodeId:null}));
-  }, [fenceType, sync]);
+  },[fenceType,sync]);
 
-  const handleDeleteWire = useCallback((id: string) => {
+  const handleDeleteWire = useCallback((id:string)=>{
     const next = wiresRef.current.filter(w=>w.id!==id);
-    setWires(next); sync(nodesRef.current, next, fenceType);
+    setWires(next); sync(nodesRef.current,next,fenceType);
     setCS(p=>({...p,selectedWireId:null}));
-  }, [fenceType, sync]);
+  },[fenceType,sync]);
 
-  const handlePan = useCallback((dx:number,dy:number) => {
+  const handlePan = useCallback((dx:number,dy:number)=>{
     setCS(p=>({...p,pan:{x:p.pan.x+dx,y:p.pan.y+dy}}));
-  }, []);
+  },[]);
 
-  const handleZoom = useCallback((zd:number,cx:number,cy:number) => {
+  const handleZoom = useCallback((zd:number,cx:number,cy:number)=>{
     setCS(p=>{
       const nz=Math.max(0.3,Math.min(4,p.scale*zd));
       return {...p,scale:nz,pan:{x:cx-(cx-p.pan.x)*(nz/p.scale),y:cy-(cy-p.pan.y)*(nz/p.scale)}};
     });
-  }, []);
+  },[]);
 
-  const setTool = (tool: CanvasState['tool']) =>
-    setCS(p=>({...p, tool, wireStart:null, pendingComponent:null}));
+  const setTool = (tool:CanvasState['tool'])=>
+    setCS(p=>({...p,tool,pendingComponent:null}));
 
-  const setWireMode = (wireMode: WireType) =>
-    setCS(p=>({...p, wireMode, wireStart:null, tool:'wire'}));
+  const setWireMode = (wireMode:WireType)=>
+    setCS(p=>({...p,wireMode,tool:'wire'}));
 
-  const pickComponent = (type: ComponentType) => {
-    setCS(p=>({...p, pendingComponent:type, tool:'place', wireStart:null}));
+  const setStrandCount = (strandCount:number)=>
+    setCS(p=>({...p,strandCount,tool:'wire'}));
+
+  const pickComponent = (type:ComponentType)=>{
+    setCS(p=>({...p,pendingComponent:type,tool:'place'}));
     setShowC(false);
   };
 
-  const runValidation = () => {
-    const result = validateFence(nodes, wires, fenceType);
+  const runValidation = ()=>{
+    const result = validateFence(nodes,wires,fenceType);
     setVR(result);
     setHL(result.issues.flatMap((i:any)=>i.affectedIds||[]));
     setShowV(true);
     Animated.spring(valAnim,{toValue:1,useNativeDriver:true,tension:80,friction:12}).start();
   };
 
-  const closeValidation = () => {
+  const closeValidation = ()=>{
     Animated.timing(valAnim,{toValue:0,duration:200,useNativeDriver:true}).start(()=>{
       setShowV(false); setHL([]);
     });
   };
 
-  const clearAll = () => Alert.alert('Clear Canvas','Remove all?',[
+  const clearAll = ()=>Alert.alert('Clear Canvas','Remove all?',[
     {text:'Cancel',style:'cancel'},
     {text:'Clear',style:'destructive',onPress:()=>{
       setNodes([]); setWires([]); setVR(null); sync([],[],fenceType);
     }},
   ]);
 
-  const htLength   = wires.filter(w=>w.type==='hot').reduce((s,w)=>s+(w.lengthMeters||0),0);
+  const htLength = wires.filter(w=>w.type==='hot').reduce((s,w)=>s+(w.lengthMeters||0),0);
   const scoreColor = validationResult
-    ? validationResult.score>=80 ? colors.ok : validationResult.score>=50 ? colors.warn : colors.danger
+    ? validationResult.score>=80?colors.ok:validationResult.score>=50?colors.warn:colors.danger
     : colors.textDim;
 
-  const TOOLS = [
-    {k:'select',i:'↖',l:'Select'},
-    {k:'pan',   i:'✋',l:'Pan'},
-    {k:'wire',  i:'〰',l:'Wire'},
-    {k:'delete',i:'✕', l:'Del'},
-  ];
+  const isWireTool = canvasState.tool==='wire';
+  const activeWireColor = WIRE_COLORS[canvasState.wireMode];
 
   return (
     <View style={styles.root}>
@@ -189,9 +186,9 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
         <View style={styles.topRight}>
           {FENCE_TYPES.map(ft=>(
             <TouchableOpacity key={ft.key}
-              style={[styles.typeBtn, fenceType===ft.key && styles.typeBtnOn]}
+              style={[styles.typeBtn,fenceType===ft.key&&styles.typeBtnOn]}
               onPress={()=>{setFT(ft.key);sync(nodes,wires,ft.key);}}>
-              <Text style={[styles.typeTxt, fenceType===ft.key && {color:colors.amber}]}>{ft.label}</Text>
+              <Text style={[styles.typeTxt,fenceType===ft.key&&{color:colors.amber}]}>{ft.label}</Text>
             </TouchableOpacity>
           ))}
           <TouchableOpacity style={styles.valBtn} onPress={runValidation}>
@@ -204,25 +201,27 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
       <View style={{position:'relative'}}>
         <FenceCanvas
           nodes={nodes} wires={wires} canvasState={canvasState}
-          onPlaceNode={handlePlaceNode} onWirePoint={handleWirePoint}
+          onPlaceNode={handlePlaceNode}
+          onWireDraw={handleWireDraw}
           onSelectNode={id=>setCS(p=>({...p,selectedNodeId:id,selectedWireId:null}))}
           onSelectWire={id=>setCS(p=>({...p,selectedWireId:id,selectedNodeId:null}))}
-          onMoveNode={handleMoveNode} onDeleteNode={handleDeleteNode}
-          onDeleteWire={handleDeleteWire} onPan={handlePan} onZoom={handleZoom}
+          onMoveNode={handleMoveNode}
+          onDeleteNode={handleDeleteNode}
+          onDeleteWire={handleDeleteWire}
+          onPan={handlePan} onZoom={handleZoom}
           highlightIds={highlightIds} canvasHeight={CANVAS_H}
         />
         {/* Mode pill */}
-        <View style={styles.modePill}>
-          <Text style={styles.modeTxt}>
-            {canvasState.tool==='wire'
-              ? `✏ ${canvasState.wireMode.replace('_',' ').toUpperCase()}`
-              : canvasState.tool==='place' && canvasState.pendingComponent
+        <View style={[styles.modePill, isWireTool&&{borderColor:activeWireColor}]}>
+          <Text style={[styles.modeTxt, isWireTool&&{color:activeWireColor}]}>
+            {isWireTool
+              ? `✏ ${canvasState.wireMode.replace('_',' ').toUpperCase()} · ${canvasState.strandCount}S`
+              : canvasState.tool==='place'&&canvasState.pendingComponent
               ? `⊕ ${canvasState.pendingComponent.replace('_',' ').toUpperCase()}`
               : canvasState.tool.toUpperCase()}
           </Text>
         </View>
-        {/* Score */}
-        {validationResult && (
+        {validationResult&&(
           <View style={[styles.scoreBadge,{borderColor:scoreColor}]}>
             <Text style={[styles.scoreNum,{color:scoreColor}]}>{validationResult.score}</Text>
             <Text style={styles.scoreLbl}>SCR</Text>
@@ -232,48 +231,70 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
 
       {/* BOTTOM BAR */}
       <View style={styles.bottomBar}>
-        {/* Row 1: Tools + Wire types + Place + Clear */}
-        <View style={styles.toolRow}>
-          {TOOLS.map(t=>(
+
+        {/* Row 1: Tools */}
+        <View style={styles.row}>
+          {[
+            {k:'select',i:'↖',l:'Select'},
+            {k:'pan',   i:'✋',l:'Pan'},
+            {k:'delete',i:'✕', l:'Delete'},
+          ].map(t=>(
             <TouchableOpacity key={t.k}
-              style={[styles.btn, canvasState.tool===t.k && styles.btnOn]}
+              style={[styles.toolBtn,canvasState.tool===t.k&&styles.toolBtnOn]}
               onPress={()=>setTool(t.k as any)}>
-              <Text style={[styles.btnIcon, canvasState.tool===t.k && {color:colors.amber}]}>{t.i}</Text>
-              <Text style={[styles.btnLbl, canvasState.tool===t.k && {color:colors.amber}]}>{t.l}</Text>
+              <Text style={[styles.toolIcon,canvasState.tool===t.k&&{color:colors.amber}]}>{t.i}</Text>
+              <Text style={[styles.toolLbl,canvasState.tool===t.k&&{color:colors.amber}]}>{t.l}</Text>
             </TouchableOpacity>
           ))}
+
           <View style={styles.div}/>
+
+          {/* Wire type buttons */}
           {WIRE_TYPES.map(wt=>(
             <TouchableOpacity key={wt.key}
-              style={[styles.wireBtn,{borderColor:wt.color},
-                canvasState.wireMode===wt.key&&canvasState.tool==='wire'&&{backgroundColor:wt.color+'25'}]}
+              style={[styles.wireTypeBtn,{borderColor:wt.color},
+                canvasState.wireMode===wt.key&&isWireTool&&{backgroundColor:wt.color+'25'}]}
               onPress={()=>setWireMode(wt.key)}>
-              <View style={[styles.wireDash,{backgroundColor:wt.color}]}/>
-              <Text style={[styles.btnLbl,{color:wt.color}]}>{wt.label}</Text>
+              <View style={[styles.wireSwatch,{backgroundColor:wt.color}]}/>
+              <Text style={[styles.toolLbl,{color:wt.color}]}>{wt.label}</Text>
             </TouchableOpacity>
           ))}
+
           <View style={styles.div}/>
+
+          {/* Place + Clear */}
           <TouchableOpacity style={styles.placeBtn} onPress={()=>setShowC(true)}>
             <Text style={styles.placeTxt}>⊕</Text>
-            <Text style={[styles.btnLbl,{color:colors.amber}]}>Place</Text>
+            <Text style={[styles.toolLbl,{color:colors.amber}]}>Place</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={clearAll}>
-            <Text style={styles.btnIcon}>🗑</Text>
-            <Text style={styles.btnLbl}>Clear</Text>
+          <TouchableOpacity style={styles.toolBtn} onPress={clearAll}>
+            <Text style={styles.toolIcon}>🗑</Text>
+            <Text style={styles.toolLbl}>Clear</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Row 2: Stats */}
-        <View style={styles.statsRow}>
+        {/* Row 2: Strand count (only when wire tool active) + Stats */}
+        <View style={styles.row}>
+          <Text style={styles.strandLabel}>STRANDS:</Text>
+          {STRAND_OPTIONS.map(s=>(
+            <TouchableOpacity key={s}
+              style={[styles.strandBtn,
+                canvasState.strandCount===s&&isWireTool&&{backgroundColor:activeWireColor+'30',borderColor:activeWireColor}]}
+              onPress={()=>setStrandCount(s)}>
+              <Text style={[styles.strandTxt,
+                canvasState.strandCount===s&&isWireTool&&{color:activeWireColor}]}>{s}</Text>
+            </TouchableOpacity>
+          ))}
+          <View style={styles.div}/>
+          {/* Stats */}
           {[
-            {l:'Energizer', v:nodes.filter(n=>n.type==='energizer').length},
-            {l:'HT Wire',   v:`${htLength}m`},
-            {l:'Gates',     v:nodes.filter(n=>n.type==='gate').length},
-            {l:'Spikes',    v:nodes.filter(n=>n.type==='earth_spike').length},
-            ...(validationResult?[{l:'Issues',v:validationResult.issues.filter((i:any)=>i.severity!=='ok').length,c:validationResult.passed?colors.ok:colors.danger}]:[]),
-          ].map((s:any,i)=>(
+            {l:'Enrgzr',v:nodes.filter(n=>n.type==='energizer').length},
+            {l:'HT',    v:`${htLength}m`},
+            {l:'Gates', v:nodes.filter(n=>n.type==='gate').length},
+            {l:'Spikes',v:nodes.filter(n=>n.type==='earth_spike').length},
+          ].map((s,i)=>(
             <View key={i} style={styles.stat}>
-              <Text style={[styles.statV, s.c&&{color:s.c}]}>{s.v}</Text>
+              <Text style={styles.statV}>{s.v}</Text>
               <Text style={styles.statL}>{s.l}</Text>
             </View>
           ))}
@@ -300,7 +321,7 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
       </Modal>
 
       {/* VALIDATION PANEL */}
-      {showValidation && validationResult && (
+      {showValidation&&validationResult&&(
         <Animated.View style={[styles.valPanel,{
           transform:[{translateY:valAnim.interpolate({inputRange:[0,1],outputRange:[SH,0]})}],
         }]}>
@@ -365,8 +386,6 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
 
 const styles = StyleSheet.create({
   root:{flex:1,backgroundColor:colors.bg},
-
-  // Top bar
   topBar:{height:TOP_BAR_H,backgroundColor:colors.bgPanel,borderBottomWidth:1,
     borderBottomColor:colors.border,flexDirection:'row',alignItems:'center',
     paddingHorizontal:8,marginTop:STATUS_H,justifyContent:'space-between'},
@@ -378,39 +397,36 @@ const styles = StyleSheet.create({
   valBtn:{backgroundColor:'rgba(255,68,68,0.15)',borderWidth:1,borderColor:colors.hot,
     borderRadius:4,paddingHorizontal:8,paddingVertical:4},
   valTxt:{fontFamily:'monospace',fontSize:10,color:colors.hot},
-
-  // Canvas overlays
   modePill:{position:'absolute',top:8,alignSelf:'center',backgroundColor:'rgba(15,21,32,0.92)',
     borderWidth:1,borderColor:colors.amber,borderRadius:20,paddingHorizontal:12,paddingVertical:3},
-  modeTxt:{fontFamily:'monospace',fontSize:8,color:colors.amber,letterSpacing:1},
+  modeTxt:{fontFamily:'monospace',fontSize:9,color:colors.amber,letterSpacing:1},
   scoreBadge:{position:'absolute',top:8,right:10,borderWidth:1,borderRadius:8,
     backgroundColor:colors.bgPanel,paddingHorizontal:8,paddingVertical:4,alignItems:'center'},
   scoreNum:{fontFamily:'monospace',fontSize:16,fontWeight:'bold'},
-  scoreLbl:{fontFamily:'monospace',fontSize:6,color:colors.textDim,letterSpacing:1},
-
-  // Bottom bar
+  scoreLbl:{fontFamily:'monospace',fontSize:6,color:colors.textDim},
   bottomBar:{height:BOTTOM_BAR_H,backgroundColor:colors.bgPanel,borderTopWidth:1,
-    borderTopColor:colors.border,paddingHorizontal:4,paddingTop:4,paddingBottom:4},
-  toolRow:{flexDirection:'row',alignItems:'center',gap:3,marginBottom:4},
-  btn:{alignItems:'center',paddingHorizontal:6,paddingVertical:3,borderRadius:4,
-    borderWidth:1,borderColor:colors.border,backgroundColor:colors.bgCard,minWidth:36},
-  btnOn:{borderColor:colors.amber,backgroundColor:colors.amberDim},
-  btnIcon:{fontSize:13,color:colors.textDim},
-  btnLbl:{fontFamily:'monospace',fontSize:7,color:colors.textDim,marginTop:1},
+    borderTopColor:colors.border,paddingHorizontal:4,paddingTop:4,paddingBottom:4,gap:4},
+  row:{flexDirection:'row',alignItems:'center',gap:3},
+  toolBtn:{alignItems:'center',paddingHorizontal:7,paddingVertical:3,borderRadius:4,
+    borderWidth:1,borderColor:colors.border,backgroundColor:colors.bgCard},
+  toolBtnOn:{borderColor:colors.amber,backgroundColor:colors.amberDim},
+  toolIcon:{fontSize:13,color:colors.textDim},
+  toolLbl:{fontFamily:'monospace',fontSize:7,color:colors.textDim,marginTop:1},
   div:{width:1,height:28,backgroundColor:colors.border,marginHorizontal:2},
-  wireBtn:{alignItems:'center',paddingHorizontal:5,paddingVertical:3,borderRadius:4,
-    borderWidth:1,minWidth:34},
-  wireDash:{width:16,height:3,borderRadius:2,marginBottom:2},
-  placeBtn:{alignItems:'center',paddingHorizontal:6,paddingVertical:3,borderRadius:4,
-    borderWidth:1,borderColor:colors.amber,backgroundColor:colors.amberDim,minWidth:36},
+  wireTypeBtn:{alignItems:'center',paddingHorizontal:6,paddingVertical:3,
+    borderRadius:4,borderWidth:1,borderColor:colors.border},
+  wireSwatch:{width:18,height:3,borderRadius:2,marginBottom:2},
+  placeBtn:{alignItems:'center',paddingHorizontal:7,paddingVertical:3,borderRadius:4,
+    borderWidth:1,borderColor:colors.amber,backgroundColor:colors.amberDim},
   placeTxt:{fontSize:14,color:colors.amber},
-  statsRow:{flexDirection:'row',gap:4},
+  strandLabel:{fontFamily:'monospace',fontSize:8,color:colors.textDim,marginRight:2},
+  strandBtn:{paddingHorizontal:7,paddingVertical:4,borderRadius:4,borderWidth:1,
+    borderColor:colors.border,backgroundColor:colors.bgCard},
+  strandTxt:{fontFamily:'monospace',fontSize:11,color:colors.textDim,fontWeight:'bold'},
   stat:{flex:1,backgroundColor:colors.bgCard,borderRadius:4,paddingVertical:3,
     alignItems:'center',borderWidth:1,borderColor:colors.border},
   statV:{fontFamily:'monospace',fontSize:11,color:colors.amber,fontWeight:'bold'},
   statL:{fontFamily:'monospace',fontSize:6,color:colors.textDim},
-
-  // Modals
   overlay:{flex:1,backgroundColor:'rgba(0,0,0,0.6)',justifyContent:'flex-end'},
   sheet:{backgroundColor:colors.bgPanel,borderTopLeftRadius:16,borderTopRightRadius:16,
     padding:16,paddingBottom:32},
@@ -421,8 +437,6 @@ const styles = StyleSheet.create({
   compLabel:{fontFamily:'monospace',fontSize:13,color:colors.text,fontWeight:'bold'},
   compSub:{fontFamily:'monospace',fontSize:9,color:colors.textDim},
   compArrow:{fontSize:20,color:colors.textDim},
-
-  // Validation
   valPanel:{position:'absolute',bottom:0,left:0,right:0,height:SH*0.78,
     backgroundColor:colors.bgPanel,borderTopLeftRadius:16,borderTopRightRadius:16,
     borderTopWidth:1,borderTopColor:colors.border},

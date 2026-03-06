@@ -36,6 +36,7 @@ export interface FenceWire {
   x2: number;
   y2: number;
   lengthMeters?: number;
+  strandCount?: number;
 }
 
 export interface FenceProject {
@@ -84,6 +85,7 @@ export type ToolMode = 'select' | 'place' | 'wire' | 'delete' | 'pan';
 export interface CanvasState {
   tool: ToolMode;
   wireMode: WireType;
+  strandCount: number;
   pendingComponent: ComponentType | null;
   selectedNodeId: string | null;
   selectedWireId: string | null;
