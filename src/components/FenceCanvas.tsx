@@ -197,27 +197,39 @@ export default function FenceCanvas({
   const { tool, wireMode, strandCount, pendingComponent,
           selectedNodeId, selectedWireId, pan, scale } = canvasState;
 
-  // Wire drawing state stored in refs to avoid stale closures
+  // KEY FIX: ref always holds latest canvasState so PanResponder never goes stale
+  const stateRef = useRef(canvasState);
+  stateRef.current = canvasState;
+
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+  const wiresRef = useRef(wires);
+  wiresRef.current = wires;
+
+  const onPlaceNodeRef  = useRef(onPlaceNode);  onPlaceNodeRef.current  = onPlaceNode;
+  const onWireDrawRef   = useRef(onWireDraw);   onWireDrawRef.current   = onWireDraw;
+  const onSelectNodeRef = useRef(onSelectNode); onSelectNodeRef.current = onSelectNode;
+  const onSelectWireRef = useRef(onSelectWire); onSelectWireRef.current = onSelectWire;
+  const onMoveNodeRef   = useRef(onMoveNode);   onMoveNodeRef.current   = onMoveNode;
+  const onDeleteNodeRef = useRef(onDeleteNode); onDeleteNodeRef.current = onDeleteNode;
+  const onDeleteWireRef = useRef(onDeleteWire); onDeleteWireRef.current = onDeleteWire;
+  const onPanRef        = useRef(onPan);        onPanRef.current        = onPan;
+  const onZoomRef       = useRef(onZoom);       onZoomRef.current       = onZoom;
+
   const wireStartRef = useRef<Point|null>(null);
   const [wirePreview, setWirePreview] = useState<{start:Point;end:Point}|null>(null);
 
-  // Pan/drag refs
-  const lastPagePos = useRef<Point>({x:0,y:0});
-  const lastDist    = useRef(0);
-  const dragNodeId  = useRef<string|null>(null);
-  const gestureStartPos = useRef<Point>({x:0,y:0});
-  const hasMoved    = useRef(false);
-
-  const getWorld = (lx:number, ly:number) => {
-    const w = toWorld(lx, ly, pan, scale);
-    return { x: snapV(w.x), y: snapV(w.y) };
-  };
+  const lastPagePos  = useRef<Point>({x:0,y:0});
+  const lastDist     = useRef(0);
+  const dragNodeId   = useRef<string|null>(null);
+  const hasMoved     = useRef(false);
 
   const panResponder = useRef(PanResponder.create({
     onStartShouldSetPanResponder: () => true,
     onMoveShouldSetPanResponder:  () => true,
 
     onPanResponderGrant: (evt) => {
+      const { tool: t, pan: p, scale: s } = stateRef.current;
       const { touches } = evt.nativeEvent;
       hasMoved.current = false;
       lastDist.current = 0;
@@ -225,7 +237,7 @@ export default function FenceCanvas({
       if (touches.length >= 2) {
         lastDist.current = Math.hypot(
           touches[0].pageX - touches[1].pageX,
-          touches[0].pageY - touches[1].pageY
+          touches[0].pageY - touches[1].pageY,
         );
         return;
       }
@@ -233,112 +245,107 @@ export default function FenceCanvas({
       const lx = touches[0].locationX;
       const ly = touches[0].locationY;
       lastPagePos.current = { x: touches[0].pageX, y: touches[0].pageY };
-      gestureStartPos.current = { x: lx, y: ly };
 
-      if (tool === 'wire') {
-        const wp = getWorld(lx, ly);
-        wireStartRef.current = wp;
-        setWirePreview({ start: wp, end: wp });
-      } else if (tool === 'select') {
-        const wp = toWorld(lx, ly, pan, scale);
-        const hn = hitNode(wp.x, wp.y, nodes);
+      if (t === 'wire') {
+        const wp = toWorld(lx, ly, p, s);
+        const snapped = { x: snapV(wp.x), y: snapV(wp.y) };
+        wireStartRef.current = snapped;
+        setWirePreview({ start: snapped, end: snapped });
+      } else if (t === 'select') {
+        const wp = toWorld(lx, ly, p, s);
+        const hn = hitNode(wp.x, wp.y, nodesRef.current);
         dragNodeId.current = hn ? hn.id : null;
       }
     },
 
     onPanResponderMove: (evt) => {
+      const { tool: t, pan: p, scale: s } = stateRef.current;
       const { touches } = evt.nativeEvent;
 
-      // Pinch zoom
       if (touches.length >= 2) {
         const dist = Math.hypot(
           touches[0].pageX - touches[1].pageX,
-          touches[0].pageY - touches[1].pageY
+          touches[0].pageY - touches[1].pageY,
         );
         if (lastDist.current > 0) {
           const cx = (touches[0].pageX + touches[1].pageX) / 2;
           const cy = (touches[0].pageY + touches[1].pageY) / 2;
-          onZoom(dist / lastDist.current, cx, cy);
+          onZoomRef.current(dist / lastDist.current, cx, cy);
         }
         lastDist.current = dist;
         return;
       }
 
-      const lx = touches[0].locationX;
-      const ly = touches[0].locationY;
+      const lx  = touches[0].locationX;
+      const ly  = touches[0].locationY;
       const px2 = touches[0].pageX;
       const py2 = touches[0].pageY;
-      const moved = Math.hypot(px2 - lastPagePos.current.x, py2 - lastPagePos.current.y);
-      if (moved > 3) hasMoved.current = true;
 
-      // Wire preview update
-      if (tool === 'wire' && wireStartRef.current) {
-        const wp = getWorld(lx, ly);
-        setWirePreview({ start: wireStartRef.current, end: wp });
+      if (Math.hypot(px2 - lastPagePos.current.x, py2 - lastPagePos.current.y) > 3)
+        hasMoved.current = true;
+
+      if (t === 'wire' && wireStartRef.current) {
+        const wp = toWorld(lx, ly, p, s);
+        setWirePreview({ start: wireStartRef.current, end: { x: snapV(wp.x), y: snapV(wp.y) } });
         lastPagePos.current = { x: px2, y: py2 };
         return;
       }
 
-      // Node drag
-      if (tool === 'select' && dragNodeId.current) {
-        const wp = getWorld(lx, ly);
-        onMoveNode(dragNodeId.current, wp.x, wp.y);
+      if (t === 'select' && dragNodeId.current) {
+        const wp = toWorld(lx, ly, p, s);
+        onMoveNodeRef.current(dragNodeId.current, snapV(wp.x), snapV(wp.y));
         lastPagePos.current = { x: px2, y: py2 };
         return;
       }
 
-      // Pan
-      if (tool === 'pan') {
-        onPan(px2 - lastPagePos.current.x, py2 - lastPagePos.current.y);
+      if (t === 'pan') {
+        onPanRef.current(px2 - lastPagePos.current.x, py2 - lastPagePos.current.y);
+        lastPagePos.current = { x: px2, y: py2 };
+        return;
       }
 
       lastPagePos.current = { x: px2, y: py2 };
     },
 
     onPanResponderRelease: (evt) => {
+      const { tool: t, pan: p, scale: s, pendingComponent: pc } = stateRef.current;
       const lx = evt.nativeEvent.locationX;
       const ly = evt.nativeEvent.locationY;
-      const wp = toWorld(lx, ly, pan, scale);
+      const wp = toWorld(lx, ly, p, s);
       const sx = snapV(wp.x), sy = snapV(wp.y);
 
-      // WIRE: place on release
-      if (tool === 'wire' && wireStartRef.current) {
+      if (t === 'wire' && wireStartRef.current) {
         const start = wireStartRef.current;
-        const dist = Math.hypot(sx - start.x, sy - start.y);
-        if (dist >= SNAP * 0.5) {
-          onWireDraw(start.x, start.y, sx, sy);
-        }
+        if (Math.hypot(sx - start.x, sy - start.y) >= SNAP * 0.5)
+          onWireDrawRef.current(start.x, start.y, sx, sy);
         wireStartRef.current = null;
         setWirePreview(null);
         return;
       }
 
-      // PLACE component
-      if (tool === 'place' && pendingComponent) {
-        onPlaceNode(pendingComponent, sx, sy);
+      if (t === 'place' && pc) {
+        onPlaceNodeRef.current(pc, sx, sy);
         return;
       }
 
-      // SELECT (tap only, not drag)
-      if (tool === 'select') {
+      if (t === 'select') {
         dragNodeId.current = null;
         if (!hasMoved.current) {
-          const hn = hitNode(wp.x, wp.y, nodes);
-          if (hn) { onSelectNode(hn.id); return; }
-          const hw = hitWire(wp.x, wp.y, wires);
-          if (hw) { onSelectWire(hw.id); return; }
-          onSelectNode(null);
-          onSelectWire(null);
+          const hn = hitNode(wp.x, wp.y, nodesRef.current);
+          if (hn) { onSelectNodeRef.current(hn.id); return; }
+          const hw = hitWire(wp.x, wp.y, wiresRef.current);
+          if (hw) { onSelectWireRef.current(hw.id); return; }
+          onSelectNodeRef.current(null);
+          onSelectWireRef.current(null);
         }
         return;
       }
 
-      // DELETE
-      if (tool === 'delete') {
-        const hn = hitNode(wp.x, wp.y, nodes);
-        if (hn) { onDeleteNode(hn.id); return; }
-        const hw = hitWire(wp.x, wp.y, wires);
-        if (hw) { onDeleteWire(hw.id); return; }
+      if (t === 'delete') {
+        const hn = hitNode(wp.x, wp.y, nodesRef.current);
+        if (hn) { onDeleteNodeRef.current(hn.id); return; }
+        const hw = hitWire(wp.x, wp.y, wiresRef.current);
+        if (hw) { onDeleteWireRef.current(hw.id); return; }
       }
     },
 
@@ -349,7 +356,6 @@ export default function FenceCanvas({
     },
   })).current;
 
-  // Transform helpers
   const ws = (w: FenceWire) => ({
     ...w,
     x1: w.x1*scale+pan.x, y1: w.y1*scale+pan.y,
@@ -357,7 +363,6 @@ export default function FenceCanvas({
   });
   const ns = (n: FenceNode) => ({ ...n, x: n.x*scale+pan.x, y: n.y*scale+pan.y });
 
-  // Grid
   const gs = SNAP * scale;
   const gridLines = [];
   for (let x=(pan.x%gs+gs)%gs; x<SW; x+=gs)
@@ -365,7 +370,6 @@ export default function FenceCanvas({
   for (let y=(pan.y%gs+gs)%gs; y<canvasHeight; y+=gs)
     gridLines.push(<Line key={`h${y}`} x1={0} y1={y} x2={SW} y2={y} stroke="rgba(20,40,65,0.85)" strokeWidth={0.5}/>);
 
-  // Preview wire in screen coords
   const previewColor = WIRE_COLORS[wireMode];
   const previewSS = wirePreview ? {
     start: toScreen(wirePreview.start.x, wirePreview.start.y, pan, scale),
@@ -376,50 +380,36 @@ export default function FenceCanvas({
     <View style={[styles.root, {height:canvasHeight}]} {...panResponder.panHandlers}>
       <Svg width={SW} height={canvasHeight}>
         {gridLines}
-
         {wires.map(ws).map(w => (
           <WireEl key={w.id} w={w}
             selected={w.id===selectedWireId}
             highlight={highlightIds.includes(w.id)}/>
         ))}
-
-        {/* Live wire preview */}
         {previewSS && (
           <G>
-            {/* Glow */}
             <Line
               x1={previewSS.start.x} y1={previewSS.start.y}
               x2={previewSS.end.x}   y2={previewSS.end.y}
               stroke={previewColor} strokeWidth={(strandCount-1)*5+20}
               strokeOpacity={0.1} strokeLinecap="round"/>
-            {/* Strands */}
             <StrandLines
               x1={previewSS.start.x} y1={previewSS.start.y}
               x2={previewSS.end.x}   y2={previewSS.end.y}
               color={previewColor} strands={strandCount}
               opacity={0.6} sw={2}/>
-            {/* Start dot */}
-            <Circle
-              cx={previewSS.start.x} cy={previewSS.start.y}
-              r={7} fill={previewColor} opacity={0.9}/>
-            {/* End dot */}
-            <Circle
-              cx={previewSS.end.x} cy={previewSS.end.y}
-              r={5} fill={previewColor} opacity={0.7}/>
+            <Circle cx={previewSS.start.x} cy={previewSS.start.y} r={7} fill={previewColor} opacity={0.9}/>
+            <Circle cx={previewSS.end.x}   cy={previewSS.end.y}   r={5} fill={previewColor} opacity={0.7}/>
           </G>
         )}
-
         {nodes.map(ns).map(n => (
           <NodeEl key={n.id} n={n}
             selected={n.id===selectedNodeId}
             highlight={highlightIds.includes(n.id)}/>
         ))}
-
-        {/* Ghost for placement */}
-        {tool==='place' && pendingComponent && previewSS && (
+        {tool === 'place' && pendingComponent && previewSS && (
           <Circle
             cx={previewSS.end.x} cy={previewSS.end.y}
-            r={20} fill={colors.amber} opacity={0.2}
+            r={20} fill={colors.amber} opacity={0.15}
             stroke={colors.amber} strokeWidth={1.5} strokeDasharray="4,3"/>
         )}
       </Svg>
