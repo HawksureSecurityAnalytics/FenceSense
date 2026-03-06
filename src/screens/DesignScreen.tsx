@@ -91,7 +91,7 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
       strandCount: wireMode==='hot'||wireMode==='earth' ? strandCount : 1,
     };
     const next = [...wiresRef.current, wire];
-    setWires(next); sync(nodesRef.current, next, fenceType);
+    setWires(next); sync(nodesRef.current, next, fenceType); setCS(p => ({...p, tool: 'pan'})); setCS(p => ({...p, tool: 'pan'}));
   },[canvasState, fenceType, sync]);
 
   const handleMoveNode = useCallback((id:string,x:number,y:number) => {
