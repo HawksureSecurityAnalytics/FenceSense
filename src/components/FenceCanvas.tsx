@@ -6,13 +6,20 @@ import { colors, WIRE_COLORS } from '../theme';
 
 const SNAP = 24;
 const { width: SW } = Dimensions.get('window');
-const STRAND_GAP = 8;   // px between strands
-const LOOP_EXT   = 16;  // how far loop cap extends past wire end
 
 function snapV(v: number) { return Math.round(v / SNAP) * SNAP; }
 function toWorld(sx:number,sy:number,pan:Point,scale:number):Point{return{x:(sx-pan.x)/scale,y:(sy-pan.y)/scale};}
 function toScreen(wx:number,wy:number,pan:Point,scale:number):Point{return{x:wx*scale+pan.x,y:wy*scale+pan.y};}
-
+function perpUnit(x1:number,y1:number,x2:number,y2:number){
+  const len=Math.hypot(x2-x1,y2-y1);
+  if(len<1)return{px:0,py:0};
+  return{px:-(y2-y1)/len,py:(x2-x1)/len};
+}
+function alongUnit(x1:number,y1:number,x2:number,y2:number){
+  const len=Math.hypot(x2-x1,y2-y1);
+  if(len<1)return{ax:1,ay:0};
+  return{ax:(x2-x1)/len,ay:(y2-y1)/len};
+}
 function hitNode(wx:number,wy:number,nodes:FenceNode[]):FenceNode|null{
   for(let i=nodes.length-1;i>=0;i--){
     const n=nodes[i];
@@ -31,27 +38,6 @@ function hitWire(wx:number,wy:number,wires:FenceWire[]):FenceWire|null{
   return null;
 }
 
-// Perpendicular unit vector
-function perpUnit(x1:number,y1:number,x2:number,y2:number){
-  const len=Math.hypot(x2-x1,y2-y1);
-  if(len<1)return{px:0,py:0};
-  return{px:-(y2-y1)/len,py:(x2-x1)/len};
-}
-// Along unit vector
-function alongUnit(x1:number,y1:number,x2:number,y2:number){
-  const len=Math.hypot(x2-x1,y2-y1);
-  if(len<1)return{ax:1,ay:0};
-  return{ax:(x2-x1)/len,ay:(y2-y1)/len};
-}
-
-// Draw a smooth U-loop arc between two points using SVG cubic bezier
-function loopPath(x1:number,y1:number,x2:number,y2:number,capX:number,capY:number):string{
-  // Bezier: start → control1 (toward cap) → control2 (toward cap) → end
-  const cx1=capX+(x1-capX)*0.3, cy1=capY+(y1-capY)*0.3;
-  const cx2=capX+(x2-capX)*0.3, cy2=capY+(y2-capY)*0.3;
-  return `M ${x1} ${y1} C ${cx1} ${cy1} ${cx2} ${cy2} ${x2} ${y2}`;
-}
-
 interface Props{
   nodes:FenceNode[];wires:FenceWire[];canvasState:CanvasState;
   onPlaceNode:(type:ComponentType,x:number,y:number)=>void;
@@ -63,109 +49,109 @@ interface Props{
   highlightIds?:string[];canvasHeight:number;
 }
 
-// Render a wire as parallel strands with U-loop arcs at each end
-const FenceWireEl=({w,selected,highlight,pan,scale}:{
-  w:FenceWire;selected:boolean;highlight:boolean;pan:Point;scale:number;
-})=>{
-  const col=WIRE_COLORS[w.type]||'#fff';
-  const isBridge=w.type.startsWith('bridge');
-  const strands=w.strandCount||1;
-  const dash=isBridge?'8,5':undefined;
-  const sw=isBridge?2:2.5;
-  const opacity=selected||highlight?1:0.92;
-  const glowOpacity=selected||highlight?0.25:0.08;
+const STRAND_GAP = 7;
+const LOOP_CAP   = 10; // tight post loop cap size in world units
 
-  // Convert wire to screen coords
+// Renders one wire segment: parallel strands + tight post loops at ends
+const FenceWireEl = ({w,selected,highlight,pan,scale}:{
+  w:FenceWire;selected:boolean;highlight:boolean;pan:Point;scale:number;
+}) => {
+  const col  = WIRE_COLORS[w.type] || '#fff';
+  const isBr = w.type.startsWith('bridge');
+  const n    = w.strandCount || 1;
+  const dash = isBr ? '7,4' : undefined;
+  const sw   = 2.2;
+  const op   = selected||highlight ? 1 : 0.9;
+  const glOp = selected||highlight ? 0.2 : 0.07;
+
+  // Screen coords
   const x1=w.x1*scale+pan.x, y1=w.y1*scale+pan.y;
   const x2=w.x2*scale+pan.x, y2=w.y2*scale+pan.y;
   const len=Math.hypot(x2-x1,y2-y1);
-  if(len<1)return null;
+  if(len<2) return null;
 
   const {px,py}=perpUnit(x1,y1,x2,y2);
   const {ax,ay}=alongUnit(x1,y1,x2,y2);
-  const gap=STRAND_GAP*(isBridge?1.5:1);
-  const totalSpread=(strands-1)*gap;
-  const startOffset=-totalSpread/2; // centre the bundle
+  const gap = STRAND_GAP;
+  // Centre strands around the drawn line
+  const spread = (n-1)*gap;
+  const o0 = -spread/2;
 
-  // Build strand lines
-  const strandLines=[];
-  for(let i=0;i<strands;i++){
-    const off=startOffset+i*gap;
-    const sx1=x1+px*off, sy1=y1+py*off;
-    const sx2=x2+px*off, sy2=y2+py*off;
-    strandLines.push(
-      <Line key={`s${i}`}
-        x1={sx1} y1={sy1} x2={sx2} y2={sy2}
-        stroke={col} strokeWidth={sw} strokeLinecap="round"
-        strokeDasharray={dash} strokeOpacity={opacity}/>
-    );
-  }
+  // Strand lines
+  const lines = Array.from({length:n},(_,i)=>{
+    const o = o0+i*gap;
+    return <Line key={i}
+      x1={x1+px*o} y1={y1+py*o} x2={x2+px*o} y2={y2+py*o}
+      stroke={col} strokeWidth={sw} strokeLinecap="round"
+      strokeDasharray={dash} strokeOpacity={op}/>;
+  });
 
-  // U-loop arcs at ends — only for non-bridge wires with 2+ strands
-  const loopArcs=[];
-  if(!isBridge && strands>=2){
-    [-1,1].forEach(endSign=>{
-      const ex=endSign===-1?x1:x2;
-      const ey=endSign===-1?y1:y2;
-      // Cap extends AWAY from fence centre
-      const capDirX=endSign===-1?-ax:ax;
-      const capDirY=endSign===-1?-ay:ay;
-      const capDist=LOOP_EXT*scale;
+  // Tight post loops at each end — only for real wires (not bridges)
+  // Loop cap extends OUTWARD from the wire endpoint
+  const loops:React.ReactElement[] = [];
+  if(!isBr && n>=2){
+    const capS = LOOP_CAP*scale; // cap size in screen px
+    [0,1].forEach(ei=>{
+      const ex=ei===0?x1:x2, ey=ei===0?y1:y2;
+      const cax=ei===0?-ax:ax, cay=ei===0?-ay:ay; // cap direction away from wire
 
-      // Connect pairs of strands: (0,1), (2,3), etc
-      for(let i=0;i<strands-1;i+=2){
-        const off1=startOffset+i*gap;
-        const off2=startOffset+(i+1)*gap;
-        const s1x=ex+px*off1, s1y=ey+py*off1;
-        const s2x=ex+px*off2, s2y=ey+py*off2;
-        // Cap midpoint between the two strands, extended outward
-        const midOff=(off1+off2)/2;
-        const capX=ex+px*midOff+capDirX*capDist;
-        const capY=ey+py*midOff+capDirY*capDist;
+      for(let i=0;i<n-1;i+=2){
+        const oa = o0+i*gap;
+        const ob = o0+(i+1)*gap;
+        const ax1=ex+px*oa, ay1=ey+py*oa; // strand i at end
+        const bx1=ex+px*ob, by1=ey+py*ob; // strand i+1 at end
 
-        loopArcs.push(
-          <Path key={`loop${endSign}${i}`}
-            d={loopPath(s1x,s1y,s2x,s2y,capX,capY)}
+        // Cap point: midpoint between the two strands, extended outward
+        const midO=(oa+ob)/2;
+        const cpx=ex+px*midO+cax*capS;
+        const cpy=ey+py*midO+cay*capS;
+
+        // Smooth bezier arc: strand i → cap → strand i+1
+        loops.push(
+          <Path key={`lp${ei}${i}`}
+            d={`M ${ax1} ${ay1} Q ${cpx} ${cpy} ${bx1} ${by1}`}
             stroke={col} strokeWidth={sw+0.5}
-            fill="none" strokeLinecap="round" strokeOpacity={opacity}/>
+            fill="none" strokeLinecap="round" strokeOpacity={op}/>
         );
       }
-      // If odd strand count, last strand gets a small end cap
-      if(strands%2!==0){
-        const lastOff=startOffset+(strands-1)*gap;
-        const lx=ex+px*lastOff, ly=ey+py*lastOff;
-        const capX2=lx+capDirX*capDist*0.5;
-        const capY2=ly+capDirY*capDist*0.5;
-        loopArcs.push(
-          <Path key={`loopEnd${endSign}`}
-            d={`M ${lx} ${ly} Q ${capX2} ${capY2} ${lx+px*0.1} ${ly+py*0.1}`}
-            stroke={col} strokeWidth={sw}
-            fill="none" strokeLinecap="round" strokeOpacity={opacity*0.6}/>
+      // Odd strand: tiny end-cap hook
+      if(n%2!==0){
+        const lastO=o0+(n-1)*gap;
+        const lx=ex+px*lastO, ly=ey+py*lastO;
+        const cpx=lx+cax*capS*0.6, cpy=ly+cay*capS*0.6;
+        loops.push(
+          <Path key={`lpOdd${ei}`}
+            d={`M ${lx} ${ly} Q ${cpx} ${cpy} ${lx+px*0.5} ${ly+py*0.5}`}
+            stroke={col} strokeWidth={sw} fill="none"
+            strokeLinecap="round" strokeOpacity={op*0.55}/>
         );
       }
     });
   }
 
-  // Strand count label
-  const midX=(x1+x2)/2, midY=(y1+y2)/2;
+  // Strand count label at midpoint, above the bundle
+  const mx=(x1+x2)/2, my=(y1+y2)/2;
+  const labelOff = spread/2+12;
 
   return(
     <G>
-      {/* Glow halo */}
+      {/* Glow */}
       <Line x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke={col} strokeWidth={totalSpread+LOOP_EXT*2}
-        strokeOpacity={glowOpacity} strokeLinecap="round"/>
-      {strandLines}
-      {loopArcs}
-      {strands>1&&!isBridge&&(
-        <SvgText x={midX} y={midY-totalSpread/2-10}
-          fill={col} fontSize={8} textAnchor="middle" opacity={0.8} fontWeight="bold">
-          {strands}S
+        stroke={col} strokeWidth={spread+LOOP_CAP*scale*2+6}
+        strokeOpacity={glOp} strokeLinecap="round"/>
+      {lines}
+      {loops}
+      {n>1&&!isBr&&(
+        <SvgText x={mx+px*(-labelOff)} y={my+py*(-labelOff)}
+          fill={col} fontSize={8} textAnchor="middle"
+          opacity={0.85} fontWeight="bold">{n}S</SvgText>
+      )}
+      {isBr&&(
+        <SvgText x={mx} y={my-8}
+          fill={col} fontSize={7} textAnchor="middle" opacity={0.7}>
+          {w.type==='bridge_hot'?'HT BR':'E BR'}
         </SvgText>
       )}
-      {/* Endpoint dots */}
-      <Circle cx={x1} cy={y1} r={3} fill={col} opacity={0.5}/>
-      <Circle cx={x2} cy={y2} r={3} fill={col} opacity={0.5}/>
     </G>
   );
 };
@@ -203,10 +189,10 @@ const NodeEl=({n,selected,highlight}:{n:FenceNode;selected:boolean;highlight:boo
       return(<G>
         {sel&&<Rect x={n.x-gw/2-6} y={n.y-gh/2-6} width={gw+12} height={gh+12} rx={4} stroke={col} strokeWidth={1.5} strokeDasharray="4,3" fill="none" opacity={0.6}/>}
         <Rect x={n.x-gw/2} y={n.y-gh/2} width={gw} height={gh} fill="rgba(245,158,11,0.1)" stroke={col} strokeWidth={2} rx={2}/>
-        <Line x1={n.x-gw/2-10} y1={n.y-5} x2={n.x-gw/2} y2={n.y-5} stroke={colors.hot} strokeWidth={2} strokeDasharray="3,3"/>
-        <Line x1={n.x+gw/2} y1={n.y-5} x2={n.x+gw/2+10} y2={n.y-5} stroke={colors.hot} strokeWidth={2} strokeDasharray="3,3"/>
+        <Line x1={n.x-gw/2-10} y1={n.y-5} x2={n.x-gw/2} y2={n.y-5} stroke={colors.hot}   strokeWidth={2} strokeDasharray="3,3"/>
+        <Line x1={n.x+gw/2}    y1={n.y-5} x2={n.x+gw/2+10} y2={n.y-5} stroke={colors.hot}   strokeWidth={2} strokeDasharray="3,3"/>
         <Line x1={n.x-gw/2-10} y1={n.y+5} x2={n.x-gw/2} y2={n.y+5} stroke={colors.earth} strokeWidth={2} strokeDasharray="3,3"/>
-        <Line x1={n.x+gw/2} y1={n.y+5} x2={n.x+gw/2+10} y2={n.y+5} stroke={colors.earth} strokeWidth={2} strokeDasharray="3,3"/>
+        <Line x1={n.x+gw/2}    y1={n.y+5} x2={n.x+gw/2+10} y2={n.y+5} stroke={colors.earth} strokeWidth={2} strokeDasharray="3,3"/>
         <SvgText x={n.x} y={n.y+gh/2+13} textAnchor="middle" fontSize={8} fill={col}>{n.label||'GATE'}</SvgText>
       </G>);
     }
@@ -235,7 +221,6 @@ export default function FenceCanvas({
   highlightIds=[],canvasHeight,
 }:Props){
   const{tool,wireMode,strandCount,pendingComponent,selectedNodeId,selectedWireId,pan,scale}=canvasState;
-
   const stateRef=useRef(canvasState); stateRef.current=canvasState;
   const nodesRef=useRef(nodes);       nodesRef.current=nodes;
   const wiresRef=useRef(wires);       wiresRef.current=wires;
@@ -312,7 +297,6 @@ export default function FenceCanvas({
     onPanResponderTerminate:()=>{wireStartRef.current=null;setWirePreview(null);dragNodeId.current=null;},
   })).current;
 
-  // Grid
   const gs=SNAP*scale;
   const gridLines=[];
   for(let x=(pan.x%gs+gs)%gs;x<SW;x+=gs)
@@ -320,14 +304,12 @@ export default function FenceCanvas({
   for(let y=(pan.y%gs+gs)%gs;y<canvasHeight;y+=gs)
     gridLines.push(<Line key={`h${y}`} x1={0} y1={y} x2={SW} y2={y} stroke="rgba(20,40,65,0.85)" strokeWidth={0.5}/>);
 
-  // Preview
   const previewColor=WIRE_COLORS[wireMode];
   const previewSS=wirePreview?{
     start:toScreen(wirePreview.start.x,wirePreview.start.y,pan,scale),
     end:  toScreen(wirePreview.end.x,  wirePreview.end.y,  pan,scale),
   }:null;
 
-  // Sort wires: earth behind HT
   const sortedWires=[
     ...wires.filter(w=>w.type==='earth'||w.type==='bridge_earth'),
     ...wires.filter(w=>w.type==='hot'||w.type==='bridge_hot'),
@@ -337,42 +319,34 @@ export default function FenceCanvas({
     <View style={[styles.root,{height:canvasHeight}]} {...panResponder.panHandlers}>
       <Svg width={SW} height={canvasHeight}>
         {gridLines}
-
-        {/* Wires with built-in loop rendering */}
         {sortedWires.map(w=>(
           <FenceWireEl key={w.id} w={w}
             selected={w.id===selectedWireId}
             highlight={highlightIds.includes(w.id)}
             pan={pan} scale={scale}/>
         ))}
-
-        {/* Preview wire */}
         {previewSS&&(
           <G>
             <Line x1={previewSS.start.x} y1={previewSS.start.y}
               x2={previewSS.end.x} y2={previewSS.end.y}
-              stroke={previewColor} strokeWidth={(strandCount-1)*STRAND_GAP+20}
-              strokeOpacity={0.1} strokeLinecap="round"/>
+              stroke={previewColor} strokeWidth={strandCount*STRAND_GAP+20}
+              strokeOpacity={0.08} strokeLinecap="round"/>
             {Array.from({length:strandCount},(_,i)=>{
               const{px,py}=perpUnit(previewSS.start.x,previewSS.start.y,previewSS.end.x,previewSS.end.y);
-              const off=(-((strandCount-1)/2)+i)*STRAND_GAP;
+              const o=(-(strandCount-1)/2+i)*STRAND_GAP;
               return<Line key={i}
-                x1={previewSS.start.x+px*off} y1={previewSS.start.y+py*off}
-                x2={previewSS.end.x+px*off}   y2={previewSS.end.y+py*off}
-                stroke={previewColor} strokeWidth={2.5} strokeLinecap="round" strokeOpacity={0.65}/>;
+                x1={previewSS.start.x+px*o} y1={previewSS.start.y+py*o}
+                x2={previewSS.end.x+px*o}   y2={previewSS.end.y+py*o}
+                stroke={previewColor} strokeWidth={2.2} strokeLinecap="round" strokeOpacity={0.65}/>;
             })}
-            <Circle cx={previewSS.start.x} cy={previewSS.start.y} r={6} fill={previewColor} opacity={0.9}/>
+            <Circle cx={previewSS.start.x} cy={previewSS.start.y} r={5} fill={previewColor} opacity={0.9}/>
             <Circle cx={previewSS.end.x}   cy={previewSS.end.y}   r={4} fill={previewColor} opacity={0.7}/>
           </G>
         )}
-
-        {/* Nodes on top */}
         {nodes.map(n=>{
           const ns={...n,x:n.x*scale+pan.x,y:n.y*scale+pan.y};
           return<NodeEl key={n.id} n={ns} selected={n.id===selectedNodeId} highlight={highlightIds.includes(n.id)}/>;
         })}
-
-        {/* Placement ghost */}
         {tool==='place'&&pendingComponent&&previewSS&&(
           <Circle cx={previewSS.end.x} cy={previewSS.end.y}
             r={20} fill={colors.amber} opacity={0.15}
@@ -382,5 +356,4 @@ export default function FenceCanvas({
     </View>
   );
 }
-
 const styles=StyleSheet.create({root:{backgroundColor:'#0d1219'}});
