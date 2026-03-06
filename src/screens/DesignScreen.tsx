@@ -7,6 +7,7 @@ import { FenceNode, FenceWire, CanvasState, ComponentType, WireType, FenceType, 
 import { colors, spacing, radius, WIRE_COLORS } from '../theme';
 import { validateFence } from '../engine/validator';
 import { scheduleAutoSave } from '../storage/projects';
+import { autoWireFence } from '../engine/autoWire';
 import FenceCanvas from '../components/FenceCanvas';
 
 const { height: SH } = Dimensions.get('window');
@@ -168,6 +169,18 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
     }},
   ]);
 
+  const handleAutoWire = useCallback(() => {
+    const { nodesToAdd, wiresToAdd, summary } = autoWireFence(nodes, wires);
+    if (!nodesToAdd.length && !wiresToAdd.length) {
+      Alert.alert('Auto Wire', summary.join('\n')); return;
+    }
+    const newNodes = [...nodesRef.current, ...nodesToAdd];
+    const newWires = [...wiresRef.current, ...wiresToAdd];
+    setNodes(newNodes); setWires(newWires);
+    sync(newNodes, newWires, fenceType);
+    Alert.alert('⚡ Auto Wire Complete', summary.join('\n'));
+  }, [nodes, wires, fenceType, sync]);
+
   const htLength = wires.filter(w=>w.type==='hot').reduce((s,w)=>s+(w.lengthMeters||0),0);
   const scoreColor = validationResult
     ? validationResult.score>=80?colors.ok:validationResult.score>=50?colors.warn:colors.danger
@@ -191,6 +204,9 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
               <Text style={[styles.typeTxt,fenceType===ft.key&&{color:colors.amber}]}>{ft.label}</Text>
             </TouchableOpacity>
           ))}
+          <TouchableOpacity style={styles.autoBtn} onPress={handleAutoWire}>
+            <Text style={styles.autoTxt}>⚡ AUTO</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.valBtn} onPress={runValidation}>
             <Text style={styles.valTxt}>✓ VAL</Text>
           </TouchableOpacity>
@@ -394,6 +410,9 @@ const styles = StyleSheet.create({
   typeBtn:{paddingHorizontal:6,paddingVertical:3,borderRadius:4,borderWidth:1,borderColor:colors.border},
   typeBtnOn:{borderColor:colors.amber,backgroundColor:colors.amberDim},
   typeTxt:{fontFamily:'monospace',fontSize:9,color:colors.textDim},
+  autoBtn:{backgroundColor:'rgba(245,166,35,0.15)',borderWidth:1,borderColor:colors.amber,
+    borderRadius:4,paddingHorizontal:8,paddingVertical:4},
+  autoTxt:{fontFamily:'monospace',fontSize:10,color:colors.amber},
   valBtn:{backgroundColor:'rgba(255,68,68,0.15)',borderWidth:1,borderColor:colors.hot,
     borderRadius:4,paddingHorizontal:8,paddingVertical:4},
   valTxt:{fontFamily:'monospace',fontSize:10,color:colors.hot},
