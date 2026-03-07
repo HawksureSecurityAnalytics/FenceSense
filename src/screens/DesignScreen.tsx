@@ -5,10 +5,10 @@ import {
 } from 'react-native';
 import { FenceNode, FenceWire, CanvasState, ComponentType, WireType, FenceType, FenceProject } from '../types';
 import { colors, spacing, radius, WIRE_COLORS } from '../theme';
-import { validateFence } from '../engine/validator';
-import { scheduleAutoSave } from '../storage/projects';
-import { autoWireFence } from '../engine/autoWire';
-import FenceCanvas from '../components/FenceCanvas';
+// import { validateFence } from '../engine/validator';
+// import { scheduleAutoSave } from '../storage/projects';
+// import { autoWireFence } from '../engine/autoWire';
+import FenceSchematic from '../components/FenceSchematic';
 
 const { height: SH } = Dimensions.get('window');
 const SNAP = 24;
@@ -213,20 +213,9 @@ export default function DesignScreen({ project, onProjectUpdate }: Props) {
         </View>
       </View>
 
-      {/* CANVAS */}
+      {/* SCHEMATIC */}
       <View style={{position:'relative'}}>
-        <FenceCanvas
-          nodes={nodes} wires={wires} canvasState={canvasState}
-          onPlaceNode={handlePlaceNode}
-          onWireDraw={handleWireDraw}
-          onSelectNode={id=>setCS(p=>({...p,selectedNodeId:id,selectedWireId:null}))}
-          onSelectWire={id=>setCS(p=>({...p,selectedWireId:id,selectedNodeId:null}))}
-          onMoveNode={handleMoveNode}
-          onDeleteNode={handleDeleteNode}
-          onDeleteWire={handleDeleteWire}
-          onPan={handlePan} onZoom={handleZoom}
-          highlightIds={highlightIds} canvasHeight={CANVAS_H}
-        />
+        <FenceSchematic />
         {/* Mode pill */}
         <View style={[styles.modePill, isWireTool&&{borderColor:activeWireColor}]}>
           <Text style={[styles.modeTxt, isWireTool&&{color:activeWireColor}]}>
