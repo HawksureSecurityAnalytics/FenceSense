@@ -9,7 +9,6 @@ const { width: SW } = Dimensions.get('window');
 const STRAND_GAP = 9;
 const HT_COL = '#ff4444';
 const EARTH_COL = '#44dd44';
-const LOOP_REACH = 14;
 
 function snapV(v: number) { return Math.round(v / SNAP) * SNAP; }
 function toWorld(sx:number,sy:number,pan:Point,scale:number):Point{return{x:(sx-pan.x)/scale,y:(sy-pan.y)/scale};}
@@ -79,35 +78,12 @@ const FenceWireEl=({w,selected,highlight,pan,scale}:{
     </G>);}
 
   const strandLines:any[]=[];
-  const loopArcs:any[]=[];
-  for(let i=0;i<n;i++){
-    const o=o0+i*STRAND_GAP;
-    const col=i%2===0?HT_COL:EARTH_COL;
-    strandLines.push(<Line key={"st"+i}
-      x1={x1+px*o} y1={y1+py*o} x2={x2+px*o} y2={y2+py*o}
-      stroke={col} strokeWidth={2.2} strokeLinecap="round" strokeOpacity={sel?1:0.92}/>);
-    if(i<n-1){
-      const nextO=o0+(i+1)*STRAND_GAP;
-      const loopCol=i%2===0?HT_COL:EARTH_COL;
-      const atRight=(i%2===0);
-      const ex=atRight?x2:x1,ey=atRight?y2:y1;
-      const cax=atRight?ax:-ax,cay=atRight?ay:-ay;
-      const aox=ex+px*o,aoy=ey+py*o;
-      const box=ex+px*nextO,boy=ey+py*nextO;
-      const midO=(o+nextO)/2;
-      const cpx=ex+px*midO+cax*LOOP_REACH;
-      const cpy=ey+py*midO+cay*LOOP_REACH;
-      loopArcs.push(<Path key={"lp"+i}
-        d={"M "+aox+" "+aoy+" Q "+cpx+" "+cpy+" "+box+" "+boy}
-        stroke={loopCol} strokeWidth={2.5} fill="none"
-        strokeLinecap="round" strokeOpacity={sel?1:0.92}/>);}
-  }
+  for(let i=0;i<n;i++){const o=o0+i*STRAND_GAP;const col=i%2===0?HT_COL:EARTH_COL;strandLines.push(<Line key={"st"+i} x1={x1+px*o} y1={y1+py*o} x2={x2+px*o} y2={y2+py*o} stroke={col} strokeWidth={2.2} strokeLinecap="round" strokeOpacity={sel?1:0.92}/>);}
   const mx=(x1+x2)/2,my=(y1+y2)/2;
   const labelO=spread/2+12;
   return(<G>
-    <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={HT_COL}
-      strokeWidth={spread+LOOP_REACH*2+8} strokeOpacity={sel?0.12:0.05} strokeLinecap="round"/>
-    {strandLines}{loopArcs}
+    <Line x1={x1} y1={y1} x2={x2} y2={y2} stroke={HT_COL} strokeWidth={spread+8} strokeOpacity={sel?0.10:0.04} strokeLinecap="round"/>
+    {strandLines}
     <SvgText x={mx+px*(-labelO)} y={my+py*(-labelO)}
       fill="#aaaaaa" fontSize={8} textAnchor="middle" opacity={0.75} fontWeight="bold">{n}S</SvgText>
   </G>);
