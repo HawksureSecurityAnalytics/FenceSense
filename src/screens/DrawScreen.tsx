@@ -7,7 +7,7 @@ import{traceCircuit,generateCorrectBridges,PathStep}from '../engine/circuitEngin
 const{width:SW}=Dimensions.get('window');
 const C={bg:'#0d1219',panel:'#111827',border:'#1e293b',ht:'#ef4444',earth:'#22c55e',post:'#94a3b8',energizer:'#f59e0b',spike:'#6b7280',fault:'#f97316',text:'#e2e8f0',muted:'#64748b',sim:'#60a5fa',dead:'#2d3748'};
 const SG=14,PTOP=22,PBOT=22,CLIP=15,EW=54,EH=40,CW=SW*3,CH=520;
-type TM='post'|'ht_bridge'|'earth_bridge'|'fault'|'delete';
+type TM='post'|'ht_bridge'|'earth_bridge'|'fault'|'gate'|'delete';
 function uid(){return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
 
 export default function DrawScreen(){
@@ -15,6 +15,7 @@ export default function DrawScreen(){
   const[segments,setSegments]=useState<Segment[]>([]);
   const[bridges,setBridges]=useState<Bridge[]>([]);
   const[faults,setFaults]=useState<FaultItem[]>([]);
+  const[gates,setGates]=useState<{id:string;segmentId:string;open:boolean}[]>([]);
   const[n,setN]=useState(8);
   const[tool,setTool]=useState<TM>('post');
   const[simRunning,setSimRunning]=useState(false);
@@ -117,6 +118,27 @@ export default function DrawScreen(){
         }
       }
     }
+    if(tool==='gate'&&segments.length>0){
+      // Find which segment was tapped (between two posts)
+      const sortedP=[...posts].sort((a,b)=>a.x-b.x);
+      for(let i=0;i<sortedP.length-1;i++){
+        if(x>=sortedP[i].x&&x<=sortedP[i+1].x){
+          const seg=segments.find(s=>{
+            const pa=posts.find(p=>p.id===s.postA);
+            return pa&&Math.abs(pa.x-sortedP[i].x)<5;
+          });
+          if(seg){
+            const existing=gates.find(g=>g.segmentId===seg.id);
+            if(existing){
+              setGates(prev=>prev.map(g=>g.id===existing.id?{...g,open:!g.open}:g));
+            } else {
+              setGates(prev=>[...prev,{id:uid(),segmentId:seg.id,open:false}]);
+            }
+          }
+          return;
+        }
+      }
+    }
     if(tool==='delete'){
       const near=posts.reduce((p,c)=>Math.hypot(c.x-x,c.y-y)<Math.hypot(p.x-x,p.y-y)?c:p,posts[0]);
       if(near&&Math.hypot(near.x-x,near.y-y)<60){
@@ -175,7 +197,7 @@ export default function DrawScreen(){
     setSimRunning(false);setActiveIds(new Set());setFaultHighlight(new Set());setSimDone(null);
   };
 
-  const clearAll=()=>{stopSim();setPosts([]);setSegments([]);setBridges([]);setFaults([]);};
+  const clearAll=()=>{stopSim();setPosts([]);setSegments([]);setBridges([]);setFaults([]);setGates([]);};
 
   const sorted=[...posts].sort((a,b)=>a.x-b.x);
   const oY=CH/2-(pTop+strandH/2);
@@ -213,6 +235,9 @@ export default function DrawScreen(){
           <TouchableOpacity style={[s.btn,simRunning?{borderColor:C.fault}:{borderColor:C.sim}]} onPress={simRunning?stopSim:startSim}>
             <Text style={[s.btnTxt,{color:simRunning?C.fault:C.sim}]}>{simRunning?'■ STOP':'▶ SIM'}</Text>
           </TouchableOpacity>
+          {(simDone!==null)&&<TouchableOpacity style={[s.btn,{borderColor:C.muted}]} onPress={()=>{setActiveIds(new Set());setFaultHighlight(new Set());setSimDone(null);setSimStep(-1);}}>
+            <Text style={s.btnTxt}>✕ CLR</Text>
+          </TouchableOpacity>}
           <TouchableOpacity style={s.btn} onPress={clearAll}><Text style={s.btnTxt}>🗑</Text></TouchableOpacity>
         </View>
       </View>
@@ -242,6 +267,7 @@ export default function DrawScreen(){
           {tool==='earth_bridge'&&'🟢 Tap near a post end to snap an Earth bridge clip'}
           {tool==='fault'&&'⚠ Tap a strand to mark/unmark as broken'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
+          {tool==='gate'&&'🚪 Tap between posts to place gate contact — tap again to toggle open/closed'}
         </Text>
       </View>
 
@@ -279,8 +305,43 @@ export default function DrawScreen(){
                     strokeWidth={activeIds.has(id)?3:2}
                     strokeDasharray={isF?'7,4':undefined} strokeLinecap="round"/>
                   {isF&&<Circle cx={(pA.x+pB.x)/2} cy={y} r={5} fill={C.fault} opacity={0.8}/>}
+                  {segIdx===0&&<SvgText x={pA.x-6} y={y+4} fill={col} fontSize={8} textAnchor="end" opacity={0.75}>{i%2===0?'HT':'E'}</SvgText>}
+                  {segIdx===segments.length-1&&<SvgText x={pB.x+6} y={y+4} fill={col} fontSize={9} fontWeight="bold" textAnchor="start" opacity={0.85}>{i+1}</SvgText>}
                 </G>);
               });
+            })}
+            {gates.map(g=>{
+              const seg=segments.find(s=>s.id===g.segmentId);
+              if(!seg)return null;
+              const pA=posts.find(p=>p.id===seg.postA),pB=posts.find(p=>p.id===seg.postB);
+              if(!pA||!pB)return null;
+              const mx=(pA.x+pB.x)/2;
+              const topY=oY+pTop-8;
+              const botY=oY+pBot+8;
+              const gCol=g.open?C.fault:C.earth;
+              return(<G key={`gate-${g.id}`} onPress={()=>{
+                if(tool==='gate'||tool==='fault')setGates(prev=>prev.map(gg=>gg.id===g.id?{...gg,open:!gg.open}:gg));
+              }}>
+                {/* Gate post markers */}
+                <Line x1={mx-18} y1={topY} x2={mx-18} y2={botY} stroke={gCol} strokeWidth={3} strokeDasharray="5,3" strokeLinecap="round"/>
+                <Line x1={mx+18} y1={topY} x2={mx+18} y2={botY} stroke={gCol} strokeWidth={3} strokeDasharray="5,3" strokeLinecap="round"/>
+                {/* Gate contact switch symbol */}
+                <Rect x={mx-22} y={(topY+botY)/2-14} width={44} height={28} fill={C.panel} stroke={gCol} strokeWidth={1.5} rx={4}/>
+                <SvgText x={mx} y={(topY+botY)/2-2} fill={gCol} fontSize={10} textAnchor="middle" fontWeight="bold">
+                  {g.open?'OPEN':'GATE'}
+                </SvgText>
+                <SvgText x={mx} y={(topY+botY)/2+10} fill={gCol} fontSize={7} textAnchor="middle">
+                  {g.open?'⚠ ALARM':'● NC'}
+                </SvgText>
+                {/* Cut lines through strands */}
+                {Array.from({length:n},(_,i)=>{
+                  const sy=oY+sY(i);
+                  return(<G key={i}>
+                    <Line x1={mx-18} y1={sy} x2={mx+18} y2={sy} stroke={g.open?C.fault:C.bg} strokeWidth={g.open?2:4}/>
+                    {g.open&&<Line x1={mx-14} y1={sy-4} x2={mx+14} y2={sy+4} stroke={C.fault} strokeWidth={1.5} opacity={0.6}/>}
+                  </G>);
+                })}
+              </G>);
             })}
             {sorted.map((p,idx)=>{
               const isEnd=idx===0||idx===sorted.length-1;
