@@ -36,8 +36,9 @@ export default function App() {
   }, []);
 
   return (
-    <StatusBar hidden={true} />
-    <View style={styles.safe}>
+    <>
+      <StatusBar hidden={true} translucent backgroundColor="transparent"/>
+      <View style={styles.safe}>
       <View style={styles.root}>
         <View style={styles.content}>
           {tab === 'design' && (
@@ -61,7 +62,8 @@ export default function App() {
           ))}
         </View>
       </View>
-    </View>
+      </View>
+    </>
   );
 }
 
