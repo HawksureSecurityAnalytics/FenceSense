@@ -25,10 +25,38 @@ export default function DrawScreen(){
   const[scale,setScale]=useState(1);
   const[pinching,setPinching]=useState(false);
   const lastDist=useRef(0);
-  const getDist=(e:any)=>{const t=e.nativeEvent.touches;if(!t||t.length<2)return 0;return Math.hypot(t[0].pageX-t[1].pageX,t[0].pageY-t[1].pageY);};
-  const onTouchStart=(e:any)=>{if(e.nativeEvent.touches.length===2){setPinching(true);lastDist.current=getDist(e);}};
-  const onTouchMove=(e:any)=>{if(e.nativeEvent.touches.length===2){const d=getDist(e);if(lastDist.current>0){const r=d/lastDist.current;setScale(s=>Math.max(0.4,Math.min(4,s*r)));}lastDist.current=d;}};
-  const onTouchEnd=()=>{setPinching(false);lastDist.current=0;};
+  const lastScale=useRef(1);
+  const getDist=(e:any)=>{
+    const t=e.nativeEvent.touches;
+    if(!t||t.length<2)return 0;
+    return Math.hypot(t[0].pageX-t[1].pageX,t[0].pageY-t[1].pageY);
+  };
+  const onTouchStart=(e:any)=>{
+    if(e.nativeEvent.touches.length===2){
+      setPinching(true);
+      lastDist.current=getDist(e);
+      lastScale.current=scale;
+    }
+  };
+  const onTouchMove=(e:any)=>{
+    if(e.nativeEvent.touches.length===2){
+      const d=getDist(e);
+      if(lastDist.current>0&&d>0){
+        const ratio=d/lastDist.current;
+        setScale(s=>{
+          const ns=Math.max(0.35,Math.min(5,s*ratio));
+          return ns;
+        });
+        lastDist.current=d;
+      }
+    }
+  };
+  const onTouchEnd=(e:any)=>{
+    if(e.nativeEvent.touches.length<2){
+      setPinching(false);
+      lastDist.current=0;
+    }
+  };
 
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
@@ -60,8 +88,8 @@ export default function DrawScreen(){
       const isLeft=nearPost.id===sorted[0].id;
       const isRight=nearPost.id===sorted[sorted.length-1].id;
       const side:BridgeSide=isLeft?'left':isRight?'right':x<nearPost.x?'left':'right';
-      const relY=y-offsetY-PBOT/2;
-      let si=Math.max(0,Math.min(n-2,Math.round(relY/SG)));
+      const strandZeroY=oY+PTOP+PBOT/2;
+      let si=Math.max(0,Math.min(n-2,Math.round((y-strandZeroY)/SG)));
       const bt:BridgeType=tool==='ht_bridge'?'ht':'earth';
       if(bt==='ht'&&si%2!==0)si=si>0?si-1:0;
       if(bt==='earth'&&si%2===0)si=si+1<n?si+1:si-1;
@@ -70,9 +98,10 @@ export default function DrawScreen(){
       setBridges(b=>[...b,{id:uid(),segmentId:segments[0]?.id??'',strandIndex:si,type:bt,side}]);
     }
     if(tool==='fault'&&segments.length>0){
-      const offsetY2=CH/2-(pTop+strandH/2);
-      const relY=y-offsetY2-PBOT/2;
-      const si=Math.max(0,Math.min(n-1,Math.round(relY/SG)));
+      // oY is the top of the post area; sY(i) is relative to oY
+      // strand i centre = oY + PTOP + PBOT/2 + i*SG
+      const strandZeroY=oY+PTOP+PBOT/2;
+      const si=Math.max(0,Math.min(n-1,Math.round((y-strandZeroY)/SG)));
       const sorted=[...posts].sort((a,b)=>a.x-b.x);
       for(let i=0;i<sorted.length-1;i++){
         if(x>=sorted[i].x&&x<=sorted[i+1].x){
