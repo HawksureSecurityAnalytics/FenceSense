@@ -36,7 +36,8 @@ export default function App() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <StatusBar hidden={true} />
+    <View style={styles.safe}>
       <View style={styles.root}>
         <View style={styles.content}>
           {tab === 'design' && (
@@ -60,12 +61,12 @@ export default function App() {
           ))}
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safe:{flex:1,backgroundColor:colors.bg},
+  safe:{flex:1,backgroundColor:colors.bg,paddingTop:0},
   root:{flex:1},
   content:{flex:1},
   tabBar:{flexDirection:'row',backgroundColor:colors.bgPanel,

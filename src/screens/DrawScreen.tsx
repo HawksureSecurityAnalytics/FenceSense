@@ -210,7 +210,9 @@ export default function DrawScreen(){
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator style={{flex:1}}
-        contentContainerStyle={{width:CW}}>
+        contentContainerStyle={{width:CW}}
+        maximumZoomScale={4} minimumZoomScale={0.3}
+        bouncesZoom={true} centerContent={true}>
         <ScrollView showsVerticalScrollIndicator contentContainerStyle={{width:CW,height:CH}}>
           <Svg width={CW} height={CH}
             onPress={(e)=>tap(e.nativeEvent.locationX,e.nativeEvent.locationY)}>
@@ -287,6 +289,31 @@ export default function DrawScreen(){
                 <Line x1={ex+EW} y1={ey+EH*0.28} x2={sorted[0].x} y2={oY+sY(0)} stroke={enA?C.sim:C.ht} strokeWidth={enA?2.5:1.5} strokeDasharray="4,3"/>
                 <SvgText x={ex+EW+3} y={ey+EH*0.72+4} fill={C.earth} fontSize={11} fontWeight="bold">–</SvgText>
                 <Line x1={ex+EW} y1={ey+EH*0.72} x2={sorted[0].x} y2={oY+sY(n-1)} stroke={C.earth} strokeWidth={1.5} strokeDasharray="4,3"/>
+                {/* Return path dotted lines showing circuit route */}
+                {bridges.filter(b=>b.type==='ht').map((b,i)=>{
+                  const postForSide=b.side==='left'?sorted[0]:sorted[sorted.length-1];
+                  if(!postForSide||b.strandIndex+2>=n)return null;
+                  const px=postForSide.x,dir=b.side==='left'?-1:1;
+                  const yA=oY+sY(b.strandIndex),yB=oY+sY(b.strandIndex+2);
+                  const cx=px+dir*CLIP;
+                  return(<G key={"ret-ht"+i}>
+                    <Line x1={px} y1={yA} x2={cx} y2={yA} stroke={C.ht} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}/>
+                    <Line x1={cx} y1={yA} x2={cx} y2={yB} stroke={C.ht} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}/>
+                    <Line x1={cx} y1={yB} x2={px} y2={yB} stroke={C.ht} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}/>
+                  </G>);
+                })}
+                {bridges.filter(b=>b.type==='earth').map((b,i)=>{
+                  const postForSide=b.side==='left'?sorted[0]:sorted[sorted.length-1];
+                  if(!postForSide||b.strandIndex+2>=n)return null;
+                  const px=postForSide.x,dir=b.side==='left'?-1:1;
+                  const yA=oY+sY(b.strandIndex),yB=oY+sY(b.strandIndex+2);
+                  const cx=px+dir*CLIP;
+                  return(<G key={"ret-e"+i}>
+                    <Line x1={px} y1={yA} x2={cx} y2={yA} stroke={C.earth} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}/>
+                    <Line x1={cx} y1={yA} x2={cx} y2={yB} stroke={C.earth} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}/>
+                    <Line x1={cx} y1={yB} x2={px} y2={yB} stroke={C.earth} strokeWidth={1} strokeDasharray="3,3" opacity={0.4}/>
+                  </G>);
+                })}
                 <Line x1={ex+EW/2} y1={ey+EH} x2={ex+EW/2} y2={oY+pBot+6} stroke={C.earth} strokeWidth={1.5}/>
                 {[-14,0,14].map((off,i)=>{const sx=ex+EW/2+off,sy=oY+pBot+6;return(<G key={i}>
                   <Line x1={sx} y1={sy} x2={sx} y2={sy+22} stroke={C.spike} strokeWidth={2.5} strokeLinecap="round"/>
