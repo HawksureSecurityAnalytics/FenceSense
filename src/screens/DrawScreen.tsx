@@ -4,9 +4,9 @@ import Svg,{Line,Rect,Circle,Text as SvgText,G}from 'react-native-svg';
 import{Post,Segment,Bridge,FaultItem,BridgeType,BridgeSide}from '../engine/circuitTypes';
 import{traceCircuit,generateCorrectBridges,PathStep}from '../engine/circuitEngine';
 
-const{width:SW}=Dimensions.get('window');
+const{width:SW,height:SH}=Dimensions.get('window');
 const C={bg:'#0d1219',dead:'#2d3748',panel:'#111827',border:'#1e293b',ht:'#ef4444',earth:'#22c55e',post:'#94a3b8',energizer:'#f59e0b',spike:'#6b7280',fault:'#f97316',text:'#e2e8f0',muted:'#64748b',sim:'#60a5fa',dead:'#2d3748'};
-const SG=14,PTOP=22,PBOT=22,CLIP=15,EW=54,EH=40,CW=SW*3,CH=520;
+const SG=14,PTOP=22,PBOT=22,CLIP=15,EW=54,EH=40,CW=4000,CH=520;
 type TM='post'|'ht_bridge'|'earth_bridge'|'fault'|'gate'|'delete';
 interface GateContact{id:string;segmentId:string;open:boolean;}
 function uid(){return 'i'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);}
@@ -26,6 +26,12 @@ export default function DrawScreen(){
   const[simStep,setSimStep]=useState(-1);
   const timer=useRef<any>(null);
   const[scale,setScale]=useState(1);
+  const[panX,setPanX]=useState(0);
+  const[panY,setPanY]=useState(0);
+  const isPinching=useRef(false);
+  const lastDist=useRef(0);
+  const panStart=useRef({x:0,y:0});
+  const panOffset=useRef({x:0,y:0});
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
@@ -43,7 +49,7 @@ export default function DrawScreen(){
   },[posts.length]);
 
   const tap=useCallback((rawX:number,rawY:number)=>{
-    const x=rawX/scale,y=rawY/scale;
+    const x=(rawX-panX)/scale,y=(rawY-panY)/scale;
     const strandZeroY=oY+PTOP+PBOT/2;
     if(tool==='post'){
       const sx=Math.round(x/110)*110;
@@ -424,8 +430,7 @@ export default function DrawScreen(){
               </G>);
             })()}
           </Svg>
-        </ScrollView>
-      </ScrollView>
+      </View>
 
       <View style={s.statsRow}>
         {([
