@@ -26,12 +26,13 @@ export default function DrawScreen(){
   const[simStep,setSimStep]=useState(-1);
   const timer=useRef<any>(null);
   const[scale,setScale]=useState(1);
-  const[panX,setPanX]=useState(0);
-  const[panY,setPanY]=useState(0);
+  const panX=useRef(0);
+  const panY=useRef(0);
+  const scaleRef=useRef(1);
   const isPinching=useRef(false);
   const lastDist=useRef(0);
   const panStart=useRef({x:0,y:0});
-  const panOffset=useRef({x:0,y:0});
+  const[viewBox,setViewBox]=useState({x:0,y:0,w:SW,h:SH});
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
@@ -49,7 +50,7 @@ export default function DrawScreen(){
   },[posts.length]);
 
   const tap=useCallback((rawX:number,rawY:number)=>{
-    const x=(rawX-panX)/scale,y=(rawY-panY)/scale;
+    const x=(rawX-panX.current)/scaleRef.current,y=(rawY-panY.current)/scaleRef.current;
     const strandZeroY=oY+PTOP+PBOT/2;
     if(tool==='post'){
       const sx=Math.round(x/110)*110;
@@ -229,13 +230,13 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
-        <TouchableOpacity style={s.zBtn} onPress={()=>setScale(s=>Math.min(3,Math.round((s+0.25)*100)/100))}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>setScale(s=>Math.max(0.4,Math.round((s-0.25)*100)/100))}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.05,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>setScale(1)}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;setScale(1);setViewBox({x:0,y:0,w:SW,h:SH});}}>
           <Text style={s.zBtnTxt}>⊙</Text>
         </TouchableOpacity>
       </View>
@@ -252,7 +253,6 @@ export default function DrawScreen(){
           } else {
             isPinching.current=false;
             panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
-            panOffset.current={x:panX,y:panY};
           }
         }}
         onResponderMove={(e)=>{
@@ -261,11 +261,24 @@ export default function DrawScreen(){
             isPinching.current=true;
             const dx=ts[0].pageX-ts[1].pageX,dy=ts[0].pageY-ts[1].pageY;
             const dist=Math.sqrt(dx*dx+dy*dy);
-            if(lastDist.current>0){setScale(s=>Math.max(0.05,Math.min(8,s*(dist/lastDist.current))));}
+            if(lastDist.current>0){
+              const ratio=dist/lastDist.current;
+              scaleRef.current=Math.max(0.05,Math.min(8,scaleRef.current*ratio));
+              setScale(scaleRef.current);
+            }
             lastDist.current=dist;
           } else if(!isPinching.current&&ts.length===1){
-            setPanX(panOffset.current.x+(e.nativeEvent.pageX-panStart.current.x));
-            setPanY(panOffset.current.y+(e.nativeEvent.pageY-panStart.current.y));
+            const dx=e.nativeEvent.pageX-panStart.current.x;
+            const dy=e.nativeEvent.pageY-panStart.current.y;
+            panX.current+=dx;
+            panY.current+=dy;
+            panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
+            setViewBox({
+              x:-panX.current/scaleRef.current,
+              y:-panY.current/scaleRef.current,
+              w:SW/scaleRef.current,
+              h:SH/scaleRef.current
+            });
           }
         }}
         onResponderRelease={(e)=>{
@@ -274,8 +287,7 @@ export default function DrawScreen(){
           const dy=Math.abs(e.nativeEvent.pageY-panStart.current.y);
           if(dx<8&&dy<8&&!isPinching.current){tap(e.nativeEvent.locationX,e.nativeEvent.locationY);}
         }}>
-          <Svg width="100%" height="100%"
-            viewBox={`${-panX/scale} ${-panY/scale} ${SW/scale} ${SH/scale}`}>
+          <Svg width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}>
 
             {/* Grid dots */}
             {Array.from({length:Math.floor(CW/90)+1},(_,xi)=>
