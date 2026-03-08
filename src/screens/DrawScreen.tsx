@@ -46,9 +46,9 @@ export default function DrawScreen(){
     const x=rawX/scale,y=rawY/scale;
     const strandZeroY=oY+PTOP+PBOT/2;
     if(tool==='post'){
-      const sx=Math.round(x/90)*90;
+      const sx=Math.round(x/110)*110;
       if(sx<80)return;
-      if(posts.some(p=>Math.abs(p.x-sx)<50))return;
+      if(posts.some(p=>Math.abs(p.x-sx)<80))return;
       setPosts(p=>[...p,{id:uid(),x:sx,y:CH/2}]);
       return;
     }
