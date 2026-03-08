@@ -28,6 +28,12 @@ export default function DrawScreen(){
   const[scale,setScale]=useState(1);
   const[pinching,setPinching]=useState(false);
   const lastDist=useRef(0);
+  const getDist=(e:any)=>{const t=e.nativeEvent.touches;if(!t||t.length<2)return 0;return Math.hypot(t[0].pageX-t[1].pageX,t[0].pageY-t[1].pageY);};
+  const onTouchStart=(e:any)=>{if(e.nativeEvent.touches.length===2){setPinching(true);lastDist.current=getDist(e);}};
+  const onTouchMove=(e:any)=>{if(e.nativeEvent.touches.length===2){const d=getDist(e);if(lastDist.current>0&&d>0){setScale(s=>Math.max(0.35,Math.min(5,s*(d/lastDist.current))));lastDist.current=d;}}};
+  const onTouchEnd=(e:any)=>{if(!e.nativeEvent.touches||e.nativeEvent.touches.length<2){setPinching(false);lastDist.current=0;}};
+  const[pinching,setPinching]=useState(false);
+  const lastDist=useRef(0);
 
   const getDist=(e:any)=>{const t=e.nativeEvent.touches;if(!t||t.length<2)return 0;return Math.hypot(t[0].pageX-t[1].pageX,t[0].pageY-t[1].pageY);};
   const onTouchStart=(e:any)=>{if(e.nativeEvent.touches.length===2){setPinching(true);lastDist.current=getDist(e);}};
