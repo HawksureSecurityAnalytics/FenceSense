@@ -26,12 +26,6 @@ export default function DrawScreen(){
   const[simStep,setSimStep]=useState(-1);
   const timer=useRef<any>(null);
   const[scale,setScale]=useState(1);
-  const[pinching,setPinching]=useState(false);
-  const lastDist=useRef(0);
-  const getDist=(e:any)=>{const t=e.nativeEvent.touches;if(!t||t.length<2)return 0;return Math.hypot(t[0].pageX-t[1].pageX,t[0].pageY-t[1].pageY);};
-  const onTouchStart=(e:any)=>{if(e.nativeEvent.touches.length===2){setPinching(true);lastDist.current=getDist(e);}};
-  const onTouchMove=(e:any)=>{if(e.nativeEvent.touches.length===2){const d=getDist(e);if(lastDist.current>0&&d>0){setScale(s=>Math.max(0.35,Math.min(5,s*(d/lastDist.current))));lastDist.current=d;}}};
-  const onTouchEnd=(e:any)=>{if(!e.nativeEvent.touches||e.nativeEvent.touches.length<2){setPinching(false);lastDist.current=0;}};
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
@@ -220,8 +214,8 @@ export default function DrawScreen(){
         ))}
       </View>
 
-      <View style={s.hint}>
-        <Text style={s.hintTxt}>
+      <View style={s.hintBar}>
+        <Text style={[s.hintTxt,{flex:1}]}>
           {tool==='post'&&'📍 Tap canvas to place posts — strands auto-fill'}
           {tool==='ht_bridge'&&'🔴 Tap near a post end to snap an HT bridge clip'}
           {tool==='earth_bridge'&&'🟢 Tap near a post end to snap an Earth bridge clip'}
@@ -229,14 +223,20 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
+        <TouchableOpacity style={s.zBtn} onPress={()=>setScale(s=>Math.min(3,Math.round((s+0.25)*100)/100))}>
+          <Text style={s.zBtnTxt}>＋</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.zBtn} onPress={()=>setScale(s=>Math.max(0.4,Math.round((s-0.25)*100)/100))}>
+          <Text style={s.zBtnTxt}>－</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={s.zBtn} onPress={()=>setScale(1)}>
+          <Text style={s.zBtnTxt}>⊙</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator style={{flex:1}}
-        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
-        scrollEnabled={!pinching}
         contentContainerStyle={{width:CW*scale}}>
         <ScrollView showsVerticalScrollIndicator
-          scrollEnabled={!pinching}
           contentContainerStyle={{width:CW*scale,height:CH*scale}}>
           <Svg width={CW*scale} height={CH*scale}
             viewBox={`0 0 ${CW} ${CH}`}
@@ -417,10 +417,12 @@ const s=StyleSheet.create({
   tBtnOn:{borderColor:'#f59e0b',backgroundColor:'#1c1600'},
   tIc:{fontSize:12},
   tLb:{color:'#64748b',fontSize:7,marginTop:1,fontWeight:'600'},
-  hint:{backgroundColor:'#0a1a0f',paddingHorizontal:12,paddingVertical:4,borderBottomWidth:1,borderBottomColor:'#1e293b'},
+  hintBar:{backgroundColor:'#0a1a0f',paddingHorizontal:8,paddingVertical:4,borderBottomWidth:1,borderBottomColor:'#1e293b',flexDirection:'row',alignItems:'center',gap:4},  hint:{backgroundColor:'#0a1a0f',paddingHorizontal:12,paddingVertical:4,borderBottomWidth:1,borderBottomColor:'#1e293b'},
   hintTxt:{color:'#22c55e',fontSize:9,fontWeight:'600'},
   statsRow:{flexDirection:'row',borderTopWidth:1,borderTopColor:'#1e293b',backgroundColor:'#111827'},
   stat:{flex:1,alignItems:'center',paddingVertical:7},
   statV:{color:'#f59e0b',fontSize:13,fontWeight:'800'},
   statL:{color:'#64748b',fontSize:7,letterSpacing:0.5,marginTop:1},
+  zBtn:{width:28,height:28,borderRadius:6,borderWidth:1,borderColor:'#1e293b',backgroundColor:'#111827',alignItems:'center',justifyContent:'center'},
+  zBtnTxt:{color:'#f59e0b',fontSize:16,fontWeight:'900',lineHeight:20},
 });
