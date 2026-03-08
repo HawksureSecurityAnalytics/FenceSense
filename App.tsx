@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
+import SplashScreen from './src/screens/SplashScreen';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { FenceProject } from './src/types';
 import { createDemoProject, loadProject } from './src/storage/projects';
@@ -35,6 +36,8 @@ export default function App() {
     setTab('design');
   }, []);
 
+  const[splashDone,setSplashDone]=useState(false);
+  if(!splashDone)return <SplashScreen onDone={()=>setSplashDone(true)}/>;
   return (
     <>
       <StatusBar hidden={true} translucent backgroundColor="transparent"/>
