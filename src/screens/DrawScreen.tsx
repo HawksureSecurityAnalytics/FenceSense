@@ -240,13 +240,42 @@ export default function DrawScreen(){
         </TouchableOpacity>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator style={{flex:1}}
-        contentContainerStyle={{width:CW*scale}}>
-        <ScrollView showsVerticalScrollIndicator
-          contentContainerStyle={{width:CW*scale,height:CH*scale}}>
-          <Svg width={CW*scale} height={CH*scale}
-            viewBox={`0 0 ${CW} ${CH}`}
-            onPress={(e)=>tap(e.nativeEvent.locationX,e.nativeEvent.locationY)}>
+      <View style={{flex:1,overflow:'hidden'}}
+        onStartShouldSetResponder={()=>true}
+        onMoveShouldSetResponder={()=>true}
+        onResponderGrant={(e)=>{
+          const ts=e.nativeEvent.touches;
+          if(ts.length===2){
+            isPinching.current=true;
+            const dx=ts[0].pageX-ts[1].pageX,dy=ts[0].pageY-ts[1].pageY;
+            lastDist.current=Math.sqrt(dx*dx+dy*dy);
+          } else {
+            isPinching.current=false;
+            panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
+            panOffset.current={x:panX,y:panY};
+          }
+        }}
+        onResponderMove={(e)=>{
+          const ts=e.nativeEvent.touches;
+          if(ts.length===2){
+            isPinching.current=true;
+            const dx=ts[0].pageX-ts[1].pageX,dy=ts[0].pageY-ts[1].pageY;
+            const dist=Math.sqrt(dx*dx+dy*dy);
+            if(lastDist.current>0){setScale(s=>Math.max(0.05,Math.min(8,s*(dist/lastDist.current))));}
+            lastDist.current=dist;
+          } else if(!isPinching.current&&ts.length===1){
+            setPanX(panOffset.current.x+(e.nativeEvent.pageX-panStart.current.x));
+            setPanY(panOffset.current.y+(e.nativeEvent.pageY-panStart.current.y));
+          }
+        }}
+        onResponderRelease={(e)=>{
+          if(e.nativeEvent.touches.length<2)isPinching.current=false;
+          const dx=Math.abs(e.nativeEvent.pageX-panStart.current.x);
+          const dy=Math.abs(e.nativeEvent.pageY-panStart.current.y);
+          if(dx<8&&dy<8&&!isPinching.current){tap(e.nativeEvent.locationX,e.nativeEvent.locationY);}
+        }}>
+          <Svg width="100%" height="100%"
+            viewBox={`${-panX/scale} ${-panY/scale} ${SW/scale} ${SH/scale}`}>
 
             {/* Grid dots */}
             {Array.from({length:Math.floor(CW/90)+1},(_,xi)=>
