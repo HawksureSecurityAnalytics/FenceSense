@@ -22,6 +22,13 @@ export default function DrawScreen(){
   const[faultHighlight,setFaultHighlight]=useState<Set<string>>(new Set());
   const[simDone,setSimDone]=useState<'ok'|'fault'|null>(null);
   const timer=useRef<any>(null);
+  const[scale,setScale]=useState(1);
+  const[pinching,setPinching]=useState(false);
+  const lastDist=useRef(0);
+  const getDist=(e:any)=>{const t=e.nativeEvent.touches;if(!t||t.length<2)return 0;return Math.hypot(t[0].pageX-t[1].pageX,t[0].pageY-t[1].pageY);};
+  const onTouchStart=(e:any)=>{if(e.nativeEvent.touches.length===2){setPinching(true);lastDist.current=getDist(e);}};
+  const onTouchMove=(e:any)=>{if(e.nativeEvent.touches.length===2){const d=getDist(e);if(lastDist.current>0){const r=d/lastDist.current;setScale(s=>Math.max(0.4,Math.min(4,s*r)));}lastDist.current=d;}};
+  const onTouchEnd=()=>{setPinching(false);lastDist.current=0;};
 
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
@@ -210,12 +217,14 @@ export default function DrawScreen(){
       </View>
 
       <ScrollView horizontal showsHorizontalScrollIndicator style={{flex:1}}
-        contentContainerStyle={{width:CW}}
-        maximumZoomScale={4} minimumZoomScale={0.3}
-        bouncesZoom={true} centerContent={true}>
-        <ScrollView showsVerticalScrollIndicator contentContainerStyle={{width:CW,height:CH}}>
-          <Svg width={CW} height={CH}
-            onPress={(e)=>tap(e.nativeEvent.locationX,e.nativeEvent.locationY)}>
+        onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+        scrollEnabled={!pinching}
+        contentContainerStyle={{width:CW*scale}}>
+        <ScrollView showsVerticalScrollIndicator
+          contentContainerStyle={{width:CW*scale,height:CH*scale}}>
+          <Svg width={CW*scale} height={CH*scale}
+            viewBox={`0 0 ${CW} ${CH}`}
+            onPress={(e)=>tap(e.nativeEvent.locationX/scale,e.nativeEvent.locationY/scale)}>
             {Array.from({length:Math.floor(CW/90)+1},(_,xi)=>
               Array.from({length:Math.floor(CH/90)+1},(_,yi)=>(
                 <Circle key={`g${xi}${yi}`} cx={xi*90} cy={yi*90} r={1.5} fill={C.border} opacity={0.5}/>
