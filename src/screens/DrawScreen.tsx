@@ -302,98 +302,112 @@ export default function DrawScreen(){
               </G>);
             })}
 
-            {/* Gate contacts - Nemtek style sliding gate */}
+            {/* Gate - Nemtek style sliding gate */}
             {gates.map(g=>{
               const seg=segments.find(s=>s.id===g.segmentId);
               if(!seg)return null;
               const pA=posts.find(p=>p.id===seg.postA),pB=posts.find(p=>p.id===seg.postB);
               if(!pA||!pB)return null;
-              const gW=pB.x-pA.x;
-              const gL=pA.x; // gate left x
-              const gR=pB.x; // gate right x
-              const gCol=g.open?C.fault:C.earth;
-              const htS=Array.from({length:n},(_,i)=>i).filter(i=>i%2===0);
-              const eS=Array.from({length:n},(_,i)=>i).filter(i=>i%2===1);
+              const gL=pA.x,gR=pB.x,gW=gR-gL;
+              const gCol=g.open?C.fault:'#a78bfa';
               const topY=oY+pTop;
               const botY=oY+pBot;
-              const bypassY=botY+30; // bypass cables run below fence
-              const contactX=gL+12; // gate contact on left gate post
+              // 3 bypass cables: HT bundle, Earth bundle, Contact wire
+              const byBase=botY+18;
+              const htByY=byBase;      // HT bundle runs here
+              const eByY=byBase+14;    // Earth bundle runs here
+              const ctByY=byBase+28;   // Contact wire runs here
+              // Connect HT bundle: joins all HT strands at gate post via short vertical drops
+              const htS=Array.from({length:n},(_,i)=>i).filter(i=>i%2===0);
+              const eS=Array.from({length:n},(_,i)=>i).filter(i=>i%2===1);
               return(<G key={`gate-${g.id}`} onPress={()=>{
-                if(tool==='gate'||tool==='fault')setGates(prev=>prev.map(gg=>gg.id===g.id?{...gg,open:!gg.open}:gg));
+                if(tool==='gate'||tool==='fault')
+                  setGates(prev=>prev.map(gg=>gg.id===g.id?{...gg,open:!gg.open}:gg));
               }}>
 
-                {/* ── Gate posts (dashed vertical bars) ── */}
-                <Line x1={gL} y1={topY-8} x2={gL} y2={botY+4} stroke="#a78bfa" strokeWidth={10} strokeLinecap="round" opacity={0.85}/>
-                <Line x1={gR} y1={topY-8} x2={gR} y2={botY+4} stroke="#a78bfa" strokeWidth={10} strokeLinecap="round" opacity={0.85}/>
-                <SvgText x={gL} y={topY-18} fill="#a78bfa" fontSize={8} textAnchor="middle">G-L</SvgText>
-                <SvgText x={gR} y={topY-18} fill="#a78bfa" fontSize={8} textAnchor="middle">G-R</SvgText>
+                {/* Gate posts - purple vertical bars */}
+                <Line x1={gL} y1={topY-10} x2={gL} y2={botY+6}
+                  stroke="#a78bfa" strokeWidth={10} strokeLinecap="round" opacity={0.9}/>
+                <Line x1={gR} y1={topY-10} x2={gR} y2={botY+6}
+                  stroke="#a78bfa" strokeWidth={10} strokeLinecap="round" opacity={0.9}/>
+                <SvgText x={gL} y={topY-20} fill="#a78bfa" fontSize={8} textAnchor="middle" fontWeight="bold">G-L</SvgText>
+                <SvgText x={gR} y={topY-20} fill="#a78bfa" fontSize={8} textAnchor="middle" fontWeight="bold">G-R</SvgText>
 
-                {/* ── Sliding gate panel ── */}
-                <Rect x={gL+4} y={topY} width={gW*0.6} height={botY-topY}
-                  fill="none" stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="6,4" rx={2} opacity={0.6}/>
-                {/* Gate diagonal lines */}
-                <Line x1={gL+4} y1={topY} x2={gL+4+gW*0.6} y2={botY} stroke="#a78bfa" strokeWidth={1} opacity={0.3}/>
-                <Line x1={gL+4+gW*0.6} y1={topY} x2={gL+4} y2={botY} stroke="#a78bfa" strokeWidth={1} opacity={0.3}/>
-                <SvgText x={gL+4+gW*0.3} y={(topY+botY)/2+4} fill="#a78bfa" fontSize={9} textAnchor="middle" fontWeight="bold" opacity={0.8}>
-                  {g.open ? '← OPEN' : 'GATE'}
+                {/* Sliding gate panel - dashed rectangle, offset right to show it slid */}
+                <Rect x={g.open?gL+gW*0.35:gL+3} y={topY+2} width={gW*0.62} height={botY-topY-4}
+                  fill="none" stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="7,4" rx={2} opacity={0.55}/>
+                <Line x1={g.open?gL+gW*0.35:gL+3} y1={topY+2}
+                  x2={g.open?gL+gW*0.97:gL+gW*0.65} y2={botY-4}
+                  stroke="#a78bfa" strokeWidth={1} opacity={0.2}/>
+                <Line x1={g.open?gL+gW*0.97:gL+gW*0.65} y1={topY+2}
+                  x2={g.open?gL+gW*0.35:gL+3} y2={botY-4}
+                  stroke="#a78bfa" strokeWidth={1} opacity={0.2}/>
+                <SvgText x={g.open?gL+gW*0.66:gL+gW*0.34} y={(topY+botY)/2+4}
+                  fill="#a78bfa" fontSize={8} textAnchor="middle" fontWeight="bold" opacity={0.7}>
+                  {g.open?'← OPEN':'GATE'}
                 </SvgText>
 
-                {/* ── Wires interrupted at gate posts ── */}
+                {/* Cut strands at gate posts */}
                 {Array.from({length:n},(_,i)=>{
                   const sy=oY+sY(i);
-                  const col=i%2===0?C.ht:C.earth;
                   return(<G key={`gcut${i}`}>
-                    <Rect x={gL-2} y={sy-4} width={8} height={8} fill={C.bg}/>
-                    <Rect x={gR-6} y={sy-4} width={8} height={8} fill={C.bg}/>
-                    {g.open&&<Line x1={gL+2} y1={sy-5} x2={gL+8} y2={sy+5} stroke={C.fault} strokeWidth={1.5}/>}
+                    <Rect x={gL-3} y={sy-4} width={10} height={8} fill={C.bg}/>
+                    <Rect x={gR-7} y={sy-4} width={10} height={8} fill={C.bg}/>
                   </G>);
                 })}
 
-                {/* ── HT bypass cables (red) looping under gate ── */}
-                {htS.map((si,k)=>{
+                {/* ── HT bundle bypass (red) - U-shape below gate ── */}
+                {/* Drop lines from each HT strand at both gate posts down to HT bundle */}
+                {htS.map(si=>{
                   const sy=oY+sY(si);
-                  const byY=bypassY+k*8;
-                  const active=activeIds.has(`strand-${seg.id}-${si}`);
-                  const col=active?C.sim:g.open?C.dead:C.ht;
-                  return(<G key={`htbypass${si}`}>
-                    <Line x1={gL} y1={sy} x2={gL} y2={byY} stroke={col} strokeWidth={1.5} strokeDasharray="3,2"/>
-                    <Line x1={gL} y1={byY} x2={gR} y2={byY} stroke={col} strokeWidth={1.5} strokeDasharray="3,2"/>
-                    <Line x1={gR} y1={byY} x2={gR} y2={sy} stroke={col} strokeWidth={1.5} strokeDasharray="3,2"/>
+                  const htCol=g.open?C.dead:C.ht;
+                  return(<G key={`htd${si}`}>
+                    <Line x1={gL} y1={sy} x2={gL} y2={htByY} stroke={htCol} strokeWidth={1} opacity={0.4}/>
+                    <Line x1={gR} y1={sy} x2={gR} y2={htByY} stroke={htCol} strokeWidth={1} opacity={0.4}/>
                   </G>);
                 })}
+                {/* HT bundle horizontal cable */}
+                <Line x1={gL} y1={htByY} x2={gR} y2={htByY}
+                  stroke={g.open?C.dead:C.ht} strokeWidth={3} strokeLinecap="round"/>
+                <SvgText x={gL-4} y={htByY+4} fill={g.open?C.dead:C.ht} fontSize={7} textAnchor="end">HT</SvgText>
 
-                {/* ── Earth bypass cables (green) looping under gate ── */}
-                {eS.map((si,k)=>{
+                {/* ── Earth bundle bypass (green) - U-shape below HT ── */}
+                {eS.map(si=>{
                   const sy=oY+sY(si);
-                  const byY=bypassY+htS.length*8+k*8;
-                  const col=g.open?C.dead:C.earth;
-                  return(<G key={`ebypass${si}`}>
-                    <Line x1={gL} y1={sy} x2={gL} y2={byY} stroke={col} strokeWidth={1.5} strokeDasharray="3,2"/>
-                    <Line x1={gL} y1={byY} x2={gR} y2={byY} stroke={col} strokeWidth={1.5} strokeDasharray="3,2"/>
-                    <Line x1={gR} y1={byY} x2={gR} y2={sy} stroke={col} strokeWidth={1.5} strokeDasharray="3,2"/>
+                  const eCol=g.open?C.dead:C.earth;
+                  return(<G key={`ed${si}`}>
+                    <Line x1={gL} y1={sy} x2={gL} y2={eByY} stroke={eCol} strokeWidth={1} opacity={0.4}/>
+                    <Line x1={gR} y1={sy} x2={gR} y2={eByY} stroke={eCol} strokeWidth={1} opacity={0.4}/>
                   </G>);
                 })}
+                <Line x1={gL} y1={eByY} x2={gR} y2={eByY}
+                  stroke={g.open?C.dead:C.earth} strokeWidth={3} strokeLinecap="round"/>
+                <SvgText x={gL-4} y={eByY+4} fill={g.open?C.dead:C.earth} fontSize={7} textAnchor="end">E</SvgText>
 
-                {/* ── Gate contact switch on left gate post ── */}
-                {/* Wire from gate post down to contact */}
-                <Line x1={contactX} y1={topY} x2={contactX} y2={topY-28}
-                  stroke={gCol} strokeWidth={1.5} strokeDasharray="3,2"/>
-                {/* Contact box */}
-                <Rect x={contactX-14} y={topY-52} width={52} height={24}
-                  fill={C.panel} stroke={gCol} strokeWidth={1.5} rx={3}/>
-                <SvgText x={contactX+12} y={topY-43} fill={gCol} fontSize={8} textAnchor="middle" fontWeight="bold">
-                  {g.open?'OPEN':'● NC'}
+                {/* ── Contact wire (yellow) - runs from gate post up to contact box ── */}
+                <Line x1={gL} y1={topY-10} x2={gL} y2={ctByY} stroke={gCol} strokeWidth={1.5} strokeDasharray="4,3"/>
+                <Line x1={gL} y1={ctByY} x2={gR} y2={ctByY} stroke={gCol} strokeWidth={1.5} strokeDasharray="4,3"/>
+                <Line x1={gR} y1={ctByY} x2={gR} y2={topY-10} stroke={gCol} strokeWidth={1.5} strokeDasharray="4,3"/>
+                <SvgText x={gL-4} y={ctByY+4} fill={gCol} fontSize={7} textAnchor="end">CT</SvgText>
+
+                {/* ── Gate contact box at top of left gate post ── */}
+                <Rect x={gL-28} y={topY-68} width={56} height={30}
+                  fill={C.panel} stroke={gCol} strokeWidth={1.5} rx={4}/>
+                <SvgText x={gL} y={topY-55} fill={gCol} fontSize={9} textAnchor="middle" fontWeight="bold">
+                  {g.open?'⚠ OPEN':'● NC'}
                 </SvgText>
-                <SvgText x={contactX+12} y={topY-33} fill={gCol} fontSize={7} textAnchor="middle">
-                  {g.open?'⚠ ALARM':'CONTACT'}
+                <SvgText x={gL} y={topY-43} fill={gCol} fontSize={7} textAnchor="middle">
+                  {g.open?'ALARM':'CONTACT OK'}
                 </SvgText>
-                {/* Magnet on gate panel */}
-                <Rect x={gL+8} y={topY-48} width={20} height={16}
-                  fill={C.panel} stroke={g.open?C.muted:gCol} strokeWidth={1} rx={2} opacity={0.8}/>
-                <SvgText x={gL+18} y={topY-37} fill={g.open?C.muted:gCol} fontSize={6} textAnchor="middle">MAG</SvgText>
-                {/* Line showing magnet away from contact when open */}
-                {g.open&&<Line x1={gL+28} y1={topY-40} x2={contactX-14} y2={topY-40}
-                  stroke={C.fault} strokeWidth={1} strokeDasharray="2,2" opacity={0.6}/>}
+                {/* Wire from contact box down to gate post top */}
+                <Line x1={gL} y1={topY-38} x2={gL} y2={topY-10}
+                  stroke={gCol} strokeWidth={1.5}/>
+
+                {/* Magnet on gate panel top rail */}
+                <Rect x={g.open?gL+gW*0.6:gL+gW*0.2} y={topY-8} width={22} height={12}
+                  fill={C.panel} stroke={g.open?C.muted:gCol} strokeWidth={1} rx={2}/>
+                <SvgText x={g.open?gL+gW*0.6+11:gL+gW*0.2+11} y={topY+1}
+                  fill={g.open?C.muted:gCol} fontSize={6} textAnchor="middle">MAG</SvgText>
 
               </G>);
             })}
