@@ -32,6 +32,7 @@ export default function DrawScreen(){
   const isPinching=useRef(false);
   const lastDist=useRef(0);
   const panStart=useRef({x:0,y:0});
+  const rafPending=useRef(false);
   const[viewBox,setViewBox]=useState({x:0,y:0,w:SW,h:SH});
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
@@ -70,7 +71,7 @@ export default function DrawScreen(){
       if(bt==='ht'&&si%2!==0)si=si>0?si-1:0;
       if(bt==='earth'&&si%2===0)si=si+1<n?si+1:si-1;
       if(si+2>n)return;
-      if(bridges.some(b=>b.type===bt&&b.side===side&&b.strandIndex===si)){Alert.alert('Already placed');return;}
+      if(bridges.some(b=>b.segmentId===seg.id&&b.type===bt&&b.side===side&&b.strandIndex===si)){Alert.alert('Already placed');return;}
       setBridges(b=>[...b,{id:uid(),segmentId:segments[0]?.id??'',strandIndex:si,type:bt,side}]);
       return;
     }
@@ -264,7 +265,6 @@ export default function DrawScreen(){
             if(lastDist.current>0){
               const ratio=dist/lastDist.current;
               scaleRef.current=Math.max(0.05,Math.min(8,scaleRef.current*ratio));
-              setScale(scaleRef.current);
             }
             lastDist.current=dist;
           } else if(!isPinching.current&&ts.length===1){
@@ -273,11 +273,18 @@ export default function DrawScreen(){
             panX.current+=dx;
             panY.current+=dy;
             panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
-            setViewBox({
-              x:-panX.current/scaleRef.current,
-              y:-panY.current/scaleRef.current,
-              w:SW/scaleRef.current,
-              h:SH/scaleRef.current
+          }
+          if(!rafPending.current){
+            rafPending.current=true;
+            requestAnimationFrame(()=>{
+              rafPending.current=false;
+              setViewBox({
+                x:-panX.current/scaleRef.current,
+                y:-panY.current/scaleRef.current,
+                w:SW/scaleRef.current,
+                h:SH/scaleRef.current
+              });
+              setScale(scaleRef.current);
             });
           }
         }}
