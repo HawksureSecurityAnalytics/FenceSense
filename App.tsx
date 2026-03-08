@@ -3,14 +3,16 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { FenceProject } from './src/types';
 import { createDemoProject, loadProject } from './src/storage/projects';
 import DesignScreen from './src/screens/DesignScreen';
+import DrawScreen from './src/screens/DrawScreen';
 import DiagnosticsScreen from './src/screens/DiagnosticsScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
 import { colors, spacing } from './src/theme';
 
-type Tab = 'design' | 'diagnostics' | 'projects';
+type Tab = 'design' | 'draw' | 'diagnostics' | 'projects';
 
 const TABS: {key:Tab;icon:string;label:string}[] = [
-  {key:'design',      icon:'✏️', label:'Design'},
+  {key:'design',      icon:'📐', label:'Schem'},
+  {key:'draw',        icon:'✏️', label:'Draw'},
   {key:'diagnostics', icon:'🔍', label:'Diagnose'},
   {key:'projects',    icon:'📁', label:'Projects'},
 ];
@@ -40,6 +42,7 @@ export default function App() {
           {tab === 'design' && (
             <DesignScreen project={project} onProjectUpdate={handleProjectUpdate}/>
           )}
+          {tab === 'draw' && <DrawScreen/>}
           {tab === 'diagnostics' && <DiagnosticsScreen/>}
           {tab === 'projects' && <ProjectsScreen onOpenProject={handleOpenProject}/>}
         </View>
