@@ -262,7 +262,8 @@ export default function DrawScreen(){
           const dy=Math.abs(e.nativeEvent.pageY-panStart.current.y);
           if(dx<8&&dy<8){tap(e.nativeEvent.locationX,e.nativeEvent.locationY);}
         }}>
-          <Svg width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}>
+          <Animated.View style={{position:'absolute',transform:[{translateX:animX},{translateY:animY}]}}>
+          <Svg width={CW} height={CH} viewBox={`0 0 ${CW} ${CH}`} style={{transform:[{scale:scale}]}}>
 
             {/* Grid dots */}
             {Array.from({length:Math.floor(CW/90)+1},(_,xi)=>
