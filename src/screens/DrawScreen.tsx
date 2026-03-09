@@ -1,5 +1,5 @@
 import React,{useState,useRef,useCallback,useEffect}from 'react';
-import{View,Text,TouchableOpacity,StyleSheet,Dimensions,ScrollView,Alert,Animated}from 'react-native';
+import{View,Text,TouchableOpacity,StyleSheet,Dimensions,ScrollView,Alert,Animated,PanResponder}from 'react-native';
 import Svg,{Line,Rect,Circle,Text as SvgText,G}from 'react-native-svg';
 import{Post,Segment,Bridge,FaultItem,BridgeType,BridgeSide}from '../engine/circuitTypes';
 import{traceCircuit,generateCorrectBridges,PathStep}from '../engine/circuitEngine';
@@ -30,12 +30,33 @@ export default function DrawScreen(){
   const panY=useRef(0);
   const animX=useRef(new Animated.Value(0)).current;
   const animY=useRef(new Animated.Value(0)).current;
+  const scaleAnim=useRef(new Animated.Value(1)).current;
   const scaleRef=useRef(1);
   const panStart=useRef({x:0,y:0});
   const rafPending=useRef(false);
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
+  const tapStart=useRef({x:0,y:0});
+  const panResponder=useRef(PanResponder.create({
+    onStartShouldSetPanResponder:()=>true,
+    onMoveShouldSetPanResponder:(_,gs)=>Math.abs(gs.dx)>4||Math.abs(gs.dy)>4,
+    onPanResponderGrant:(_,gs)=>{
+      tapStart.current={x:gs.x0,y:gs.y0};
+      panStart.current={x:panX.current,y:panY.current};
+    },
+    onPanResponderMove:(_,gs)=>{
+      animX.setValue(panStart.current.x+gs.dx);
+      animY.setValue(panStart.current.y+gs.dy);
+    },
+    onPanResponderRelease:(_,gs)=>{
+      panX.current=panStart.current.x+gs.dx;
+      panY.current=panStart.current.y+gs.dy;
+      if(Math.abs(gs.dx)<12&&Math.abs(gs.dy)<12){
+        tap(tapStart.current.x,tapStart.current.y);
+      }
+    },
+  })).current;
   const oY=CH/2-(pTop+strandH/2);
 
   useEffect(()=>{
@@ -230,40 +251,20 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.05,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.05,+(scaleRef.current-0.25).toFixed(2));scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;animX.setValue(0);animY.setValue(0);setScale(1);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;animX.setValue(0);animY.setValue(0);scaleAnim.setValue(1);setScale(1);}}>
           <Text style={s.zBtnTxt}>⊙</Text>
         </TouchableOpacity>
       </View>
 
-      <View style={{flex:1,overflow:'hidden'}}
-        onStartShouldSetResponder={()=>true}
-        onMoveShouldSetResponder={()=>true}
-        onResponderGrant={(e)=>{
-          panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
-        }}
-        onResponderMove={(e)=>{
-          if(e.nativeEvent.touches.length!==1)return;
-          const dx=e.nativeEvent.pageX-panStart.current.x;
-          const dy=e.nativeEvent.pageY-panStart.current.y;
-          panX.current+=dx;
-          panY.current+=dy;
-          panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
-          animX.setValue(panX.current);
-          animY.setValue(panY.current);
-        }}
-        onResponderRelease={(e)=>{
-          const dx=Math.abs(e.nativeEvent.pageX-panStart.current.x);
-          const dy=Math.abs(e.nativeEvent.pageY-panStart.current.y);
-          if(dx<8&&dy<8){tap(e.nativeEvent.locationX,e.nativeEvent.locationY);}
-        }}>
-          <Animated.View style={{position:'absolute',transform:[{translateX:animX},{translateY:animY}]}}>
-          <Svg width={CW} height={CH} viewBox={`0 0 ${CW} ${CH}`} style={{transform:[{scale:scale}]}}>
+      <View style={{flex:1,overflow:'hidden'}} {...panResponder.panHandlers}>
+          <Animated.View style={{position:'absolute',top:0,left:0,width:CW,height:CH,transform:[{translateX:animX},{translateY:animY},{scale:scaleAnim}]}}>
+          <Svg width={CW} height={CH} viewBox={`0 0 ${CW} ${CH}`}>
 
             {/* Grid dots */}
             {Array.from({length:Math.floor(CW/90)+1},(_,xi)=>
