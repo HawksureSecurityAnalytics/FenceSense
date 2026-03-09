@@ -1,5 +1,5 @@
 import React,{useState,useRef,useCallback,useEffect}from 'react';
-import{View,Text,TouchableOpacity,StyleSheet,Dimensions,ScrollView,Alert}from 'react-native';
+import{View,Text,TouchableOpacity,StyleSheet,Dimensions,ScrollView,Alert,Animated}from 'react-native';
 import Svg,{Line,Rect,Circle,Text as SvgText,G}from 'react-native-svg';
 import{Post,Segment,Bridge,FaultItem,BridgeType,BridgeSide}from '../engine/circuitTypes';
 import{traceCircuit,generateCorrectBridges,PathStep}from '../engine/circuitEngine';
@@ -28,12 +28,11 @@ export default function DrawScreen(){
   const[scale,setScale]=useState(1);
   const panX=useRef(0);
   const panY=useRef(0);
+  const animX=useRef(new Animated.Value(0)).current;
+  const animY=useRef(new Animated.Value(0)).current;
   const scaleRef=useRef(1);
-  const isPinching=useRef(false);
-  const lastDist=useRef(0);
   const panStart=useRef({x:0,y:0});
   const rafPending=useRef(false);
-  const[viewBox,setViewBox]=useState({x:0,y:0,w:SW,h:SH});
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
@@ -231,13 +230,13 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.05,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.05,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;setScale(1);setViewBox({x:0,y:0,w:SW,h:SH});}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;animX.setValue(0);animY.setValue(0);setScale(1);}}>
           <Text style={s.zBtnTxt}>⊙</Text>
         </TouchableOpacity>
       </View>
@@ -255,13 +254,8 @@ export default function DrawScreen(){
           panX.current+=dx;
           panY.current+=dy;
           panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
-          if(!rafPending.current){
-            rafPending.current=true;
-            requestAnimationFrame(()=>{
-              rafPending.current=false;
-              setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});
-            });
-          }
+          animX.setValue(panX.current);
+          animY.setValue(panY.current);
         }}
         onResponderRelease={(e)=>{
           const dx=Math.abs(e.nativeEvent.pageX-panStart.current.x);
@@ -452,6 +446,7 @@ export default function DrawScreen(){
               </G>);
             })()}
           </Svg>
+          </Animated.View>
       </View>
 
       <View style={s.statsRow}>
