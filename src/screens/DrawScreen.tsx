@@ -284,12 +284,12 @@ export default function DrawScreen(){
                 w:SW/scaleRef.current,
                 h:SH/scaleRef.current
               });
-              setScale(scaleRef.current);
             });
           }
         }}
         onResponderRelease={(e)=>{
           if(e.nativeEvent.touches.length<2)isPinching.current=false;
+          setScale(scaleRef.current);
           const dx=Math.abs(e.nativeEvent.pageX-panStart.current.x);
           const dy=Math.abs(e.nativeEvent.pageY-panStart.current.y);
           if(dx<8&&dy<8&&!isPinching.current){tap(e.nativeEvent.locationX,e.nativeEvent.locationY);}
