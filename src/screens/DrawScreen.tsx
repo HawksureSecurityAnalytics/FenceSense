@@ -246,53 +246,27 @@ export default function DrawScreen(){
         onStartShouldSetResponder={()=>true}
         onMoveShouldSetResponder={()=>true}
         onResponderGrant={(e)=>{
-          const ts=e.nativeEvent.touches;
-          if(ts.length===2){
-            isPinching.current=true;
-            const dx=ts[0].pageX-ts[1].pageX,dy=ts[0].pageY-ts[1].pageY;
-            lastDist.current=Math.sqrt(dx*dx+dy*dy);
-          } else {
-            isPinching.current=false;
-            panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
-          }
+          panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
         }}
         onResponderMove={(e)=>{
-          const ts=e.nativeEvent.touches;
-          if(ts.length===2){
-            isPinching.current=true;
-            const dx=ts[0].pageX-ts[1].pageX,dy=ts[0].pageY-ts[1].pageY;
-            const dist=Math.sqrt(dx*dx+dy*dy);
-            if(lastDist.current>0){
-              const ratio=dist/lastDist.current;
-              scaleRef.current=Math.max(0.05,Math.min(8,scaleRef.current*ratio));
-            }
-            lastDist.current=dist;
-          } else if(!isPinching.current&&ts.length===1){
-            const dx=e.nativeEvent.pageX-panStart.current.x;
-            const dy=e.nativeEvent.pageY-panStart.current.y;
-            panX.current+=dx;
-            panY.current+=dy;
-            panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
-          }
+          if(e.nativeEvent.touches.length!==1)return;
+          const dx=e.nativeEvent.pageX-panStart.current.x;
+          const dy=e.nativeEvent.pageY-panStart.current.y;
+          panX.current+=dx;
+          panY.current+=dy;
+          panStart.current={x:e.nativeEvent.pageX,y:e.nativeEvent.pageY};
           if(!rafPending.current){
             rafPending.current=true;
             requestAnimationFrame(()=>{
               rafPending.current=false;
-              setViewBox({
-                x:-panX.current/scaleRef.current,
-                y:-panY.current/scaleRef.current,
-                w:SW/scaleRef.current,
-                h:SH/scaleRef.current
-              });
+              setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});
             });
           }
         }}
         onResponderRelease={(e)=>{
-          if(e.nativeEvent.touches.length<2)isPinching.current=false;
-          setScale(scaleRef.current);
           const dx=Math.abs(e.nativeEvent.pageX-panStart.current.x);
           const dy=Math.abs(e.nativeEvent.pageY-panStart.current.y);
-          if(dx<8&&dy<8&&!isPinching.current){tap(e.nativeEvent.locationX,e.nativeEvent.locationY);}
+          if(dx<8&&dy<8){tap(e.nativeEvent.locationX,e.nativeEvent.locationY);}
         }}>
           <Svg width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}>
 
