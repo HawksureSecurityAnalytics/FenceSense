@@ -27,10 +27,12 @@ export default function DrawScreen(){
   const[simStep,setSimStep]=useState(-1);
   const timer=useRef<any>(null);
   const[scale,setScale]=useState(1);
-  const panX=useRef(0);
-  const panY=useRef(0);
-  const animX=useRef(new Animated.Value(0)).current;
-  const animY=useRef(new Animated.Value(0)).current;
+  const panX=useRef(SW/2-CW/2);
+  const panY=useRef(SH/2-CH/2);
+  const initX=SW/2-CW/2;
+  const initY=SH/2-CH/2;
+  const animX=useRef(new Animated.Value(initX)).current;
+  const animY=useRef(new Animated.Value(initY)).current;
   const scaleAnim=useRef(new Animated.Value(1)).current;
   const scaleRef=useRef(1);
   const panStart=useRef({x:0,y:0});
