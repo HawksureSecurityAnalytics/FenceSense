@@ -55,7 +55,7 @@ export default function DrawScreen(){
       panX.current=panStart.current.x+gs.dx;
       panY.current=panStart.current.y+gs.dy;
       if(Math.abs(gs.dx)<12&&Math.abs(gs.dy)<12){
-        tap(tapStart.current.x,tapStart.current.y);
+        tapRef.current(tapStart.current.x,tapStart.current.y);
       }
     },
   })).current;
@@ -138,6 +138,8 @@ export default function DrawScreen(){
       }
     }
   },[posts,segments,bridges,gates,n,oY,strandH]);
+  const tapRef=useRef(tap);
+  useEffect(()=>{tapRef.current=tap;},[tap]);
 
   const autoWire=()=>{
     if(!segments.length){Alert.alert('Place posts first');return;}
