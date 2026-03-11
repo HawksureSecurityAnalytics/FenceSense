@@ -1,5 +1,5 @@
 import React,{useState,useRef,useCallback,useEffect}from 'react';
-import{View,Text,TouchableOpacity,StyleSheet,Dimensions,ScrollView,Alert,Animated,PanResponder}from 'react-native';
+import{View,Text,TouchableOpacity,StyleSheet,Dimensions,ScrollView,Alert,PanResponder}from 'react-native';
 import Svg,{Line,Rect,Circle,Text as SvgText,G}from 'react-native-svg';
 import{Post,Segment,Bridge,FaultItem,BridgeType,BridgeSide}from '../engine/circuitTypes';
 import{traceCircuit,generateCorrectBridges,PathStep}from '../engine/circuitEngine';
@@ -27,15 +27,12 @@ export default function DrawScreen(){
   const[simStep,setSimStep]=useState(-1);
   const timer=useRef<any>(null);
   const[scale,setScale]=useState(1);
-  const panX=useRef(SW/2-CW/2);
-  const panY=useRef(SH/2-CH/2);
-  const initX=SW/2-CW/2;
-  const initY=SH/2-CH/2;
-  const animX=useRef(new Animated.Value(initX)).current;
-  const animY=useRef(new Animated.Value(initY)).current;
-  const scaleAnim=useRef(new Animated.Value(1)).current;
+  const panX=useRef(0);
+  const panY=useRef(0);
+  const[viewBox,setViewBox]=useState({x:-SW/2+100,y:-SH/2+CH/2,w:SW,h:SH});
   const scaleRef=useRef(1);
   const panStart=useRef({x:0,y:0});
+  const rafPending=useRef(false);
   const rafPending=useRef(false);
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
@@ -50,12 +47,17 @@ export default function DrawScreen(){
       panStart.current={x:panX.current,y:panY.current};
     },
     onPanResponderMove:(_,gs)=>{
-      animX.setValue(panStart.current.x+gs.dx);
-      animY.setValue(panStart.current.y+gs.dy);
-    },
-    onPanResponderRelease:(_,gs)=>{
       panX.current=panStart.current.x+gs.dx;
       panY.current=panStart.current.y+gs.dy;
+      if(!rafPending.current){
+        rafPending.current=true;
+        requestAnimationFrame(()=>{
+          rafPending.current=false;
+          setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});
+        });
+      }
+    },
+    onPanResponderRelease:(_,gs)=>{
       if(Math.abs(gs.dx)<12&&Math.abs(gs.dy)<12){
         tapRef.current(tapStart.current.x,tapStart.current.y);
       }
@@ -264,20 +266,19 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.min(8,+(oS+0.25).toFixed(2));const vcx=(SW/2-panX.current)/oS;const vcy=(SH/2-panY.current)/oS;panX.current=SW/2-vcx*scaleRef.current;panY.current=SH/2-vcy*scaleRef.current;animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.max(0.1,+(oS-0.25).toFixed(2));const vcx=(SW/2-panX.current)/oS;const vcy=(SH/2-panY.current)/oS;panX.current=SW/2-vcx*scaleRef.current;panY.current=SH/2-vcy*scaleRef.current;animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.1,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=SW/2-CW/2;panY.current=SH/2-CH/2;animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(1);setScale(1);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;setScale(1);setViewBox({x:0,y:0,w:SW,h:SH});}}>
           <Text style={s.zBtnTxt}>⊙</Text>
         </TouchableOpacity>
       </View>
 
       <View style={{flex:1,overflow:'hidden'}} {...panResponder.panHandlers} onLayout={(e)=>{canvasTop.current=e.nativeEvent.layout.y;}}>
-          <Animated.View style={{position:'absolute',top:0,left:0,width:CW,height:CH,transform:[{translateX:animX},{translateY:animY},{scale:scaleAnim}]}}>
-          <Svg width={CW} height={CH} viewBox={`0 0 ${CW} ${CH}`}>
+          <Svg width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}>
 
             {/* Grid dots */}
             {Array.from({length:Math.floor(CW/90)+1},(_,xi)=>
@@ -467,7 +468,6 @@ export default function DrawScreen(){
               </G>);
             })()}
           </Svg>
-          </Animated.View>
       </View>
 
       <View style={s.statsRow}>
