@@ -262,19 +262,19 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.min(8,+(oS+0.25).toFixed(2));const cx=SW/2,cy=SH/2;panX.current=cx-(cx-panX.current)*(scaleRef.current/oS);panY.current=cy-(cy-panY.current)*(scaleRef.current/oS);animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.min(8,+(oS+0.25).toFixed(2));const cx=SW/2,cy=SH/2;const contentX=(cx-panX.current)/oS;const contentY=(cy-panY.current)/oS;panX.current=cx-scaleRef.current*contentX;panY.current=cy-scaleRef.current*contentY;animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.max(0.1,+(oS-0.25).toFixed(2));const cx=SW/2,cy=SH/2;panX.current=cx-(cx-panX.current)*(scaleRef.current/oS);panY.current=cy-(cy-panY.current)*(scaleRef.current/oS);animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.max(0.1,+(oS-0.25).toFixed(2));const cx=SW/2,cy=SH/2;const contentX=(cx-panX.current)/oS;const contentY=(cy-panY.current)/oS;panX.current=cx-scaleRef.current*contentX;panY.current=cy-scaleRef.current*contentY;animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;animX.setValue(0);animY.setValue(0);scaleAnim.setValue(1);setScale(1);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=SW/2-CW/2;panY.current=SH/2-CH/2;animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(1);setScale(1);}}>
           <Text style={s.zBtnTxt}>⊙</Text>
         </TouchableOpacity>
       </View>
 
       <View style={{flex:1,overflow:'hidden'}} {...panResponder.panHandlers} onLayout={(e)=>{canvasTop.current=e.nativeEvent.layout.y;}}>
-          <Animated.View style={{position:'absolute',top:0,left:0,width:CW,height:CH,transform:[{translateX:animX},{translateY:animY},{scale:scaleAnim}]}}>
+          <Animated.View style={{position:'absolute',top:0,left:0,width:CW,height:CH,transform:[{scale:scaleAnim},{translateX:animX},{translateY:animY}]}}>
           <Svg width={CW} height={CH} viewBox={`0 0 ${CW} ${CH}`}>
 
             {/* Grid dots */}
