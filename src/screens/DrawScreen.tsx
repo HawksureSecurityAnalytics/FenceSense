@@ -33,7 +33,6 @@ export default function DrawScreen(){
   const scaleRef=useRef(1);
   const panStart=useRef({x:0,y:0});
   const rafPending=useRef(false);
-  const rafPending=useRef(false);
   const strandH=(n-1)*SG;
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
