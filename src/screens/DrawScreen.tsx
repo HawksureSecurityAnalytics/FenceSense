@@ -94,8 +94,14 @@ export default function DrawScreen(){
       if(bt==='ht'&&si%2!==0)si=si>0?si-1:0;
       if(bt==='earth'&&si%2===0)si=si+1<n?si+1:si-1;
       if(si+2>n)return;
-      if(bridges.some(b=>b.segmentId===seg.id&&b.type===bt&&b.side===side&&b.strandIndex===si)){Alert.alert('Already placed');return;}
-      setBridges(b=>[...b,{id:uid(),segmentId:segments[0]?.id??'',strandIndex:si,type:bt,side}]);
+      const seg=segments.find(s=>{
+        const pa=posts.find(p=>p.id===s.postA);
+        const pb=posts.find(p=>p.id===s.postB);
+        return (pa&&Math.abs(pa.x-nearPost.x)<5)||(pb&&Math.abs(pb.x-nearPost.x)<5);
+      });
+      const segId=seg?.id??segments[0]?.id??'';
+      if(bridges.some(b=>b.segmentId===segId&&b.type===bt&&b.side===side&&b.strandIndex===si)){Alert.alert('Already placed');return;}
+      setBridges(b=>[...b,{id:uid(),segmentId:segId,strandIndex:si,type:bt,side}]);
       return;
     }
     if(tool==='fault'&&segments.length>0){
