@@ -19,6 +19,7 @@ export default function DrawScreen(){
   const[gates,setGates]=useState<GateContact[]>([]);
   const[n,setN]=useState(8);
   const[tool,setTool]=useState<TM>('post');
+  const toolRef=useRef<TM>('post');
   const[simRunning,setSimRunning]=useState(false);
   const[activeIds,setActiveIds]=useState<Set<string>>(new Set());
   const[faultHighlight,setFaultHighlight]=useState<Set<string>>(new Set());
@@ -74,6 +75,7 @@ export default function DrawScreen(){
   const tap=useCallback((rawX:number,rawY:number)=>{
     const x=(rawX-panX.current)/scaleRef.current,y=(rawY-panY.current)/scaleRef.current;
     const strandZeroY=oY+PTOP+PBOT/2;
+    const tool=toolRef.current;
     if(tool==='post'){
       const sx=Math.round(x/110)*110;
       if(sx<80)return;
@@ -135,7 +137,7 @@ export default function DrawScreen(){
         setGates(g=>g.filter(gg=>!affSegs.some(s=>s.id===gg.segmentId)));
       }
     }
-  },[tool,posts,segments,bridges,gates,n,oY,scale,strandH]);
+  },[posts,segments,bridges,gates,n,oY,strandH]);
 
   const autoWire=()=>{
     if(!segments.length){Alert.alert('Place posts first');return;}
@@ -236,7 +238,7 @@ export default function DrawScreen(){
           ['gate','🚪','Gate'],
           ['delete','✕','Del'],
         ] as [TM,string,string][]).map(([t,ic,lb])=>(
-          <TouchableOpacity key={t} style={[s.tBtn,tool===t&&s.tBtnOn]} onPress={()=>setTool(t)}>
+          <TouchableOpacity key={t} style={[s.tBtn,tool===t&&s.tBtnOn]} onPress={()=>{setTool(t);toolRef.current=t;}}>
             <Text style={s.tIc}>{ic}</Text>
             <Text style={[s.tLb,tool===t&&{color:C.energizer}]}>{lb}</Text>
           </TouchableOpacity>
