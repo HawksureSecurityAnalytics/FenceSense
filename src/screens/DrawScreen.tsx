@@ -262,10 +262,10 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.min(8,+(oS+0.25).toFixed(2));const cx=SW/2,cy=SH/2;panX.current=cx-(cx-panX.current)*(scaleRef.current/oS);panY.current=cy-(cy-panY.current)*(scaleRef.current/oS);animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.05,+(scaleRef.current-0.25).toFixed(2));scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{const oS=scaleRef.current;scaleRef.current=Math.max(0.1,+(oS-0.25).toFixed(2));const cx=SW/2,cy=SH/2;panX.current=cx-(cx-panX.current)*(scaleRef.current/oS);panY.current=cy-(cy-panY.current)*(scaleRef.current/oS);animX.setValue(panX.current);animY.setValue(panY.current);scaleAnim.setValue(scaleRef.current);setScale(scaleRef.current);}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
         <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;animX.setValue(0);animY.setValue(0);scaleAnim.setValue(1);setScale(1);}}>
