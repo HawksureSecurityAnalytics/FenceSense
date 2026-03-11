@@ -42,7 +42,7 @@ export default function DrawScreen(){
     onStartShouldSetPanResponder:()=>true,
     onMoveShouldSetPanResponder:(_,gs)=>Math.abs(gs.dx)>4||Math.abs(gs.dy)>4,
     onPanResponderGrant:(_,gs)=>{
-      tapStart.current={x:gs.x0,y:gs.y0-canvasTop.current};
+      tapStart.current={x:gs.x0,y:gs.y0};
       panStart.current={x:panX.current,y:panY.current};
     },
     onPanResponderMove:(_,gs)=>{
@@ -76,7 +76,7 @@ export default function DrawScreen(){
   },[posts.length]);
 
   const tap=useCallback((rawX:number,rawY:number)=>{
-    const x=(rawX-panX.current)/scaleRef.current,y=(rawY-panY.current)/scaleRef.current;
+    const x=(rawX-panX.current)/scaleRef.current,y=((rawY-canvasTop.current)-panY.current)/scaleRef.current;
     const strandZeroY=oY+PTOP+PBOT/2;
     const tool=toolRef.current;
     if(tool==='post'){
