@@ -92,11 +92,10 @@ export default function DrawScreen(){
       const isLeft=nearPost.id===sorted[0].id;
       const isRight=nearPost.id===sorted[sorted.length-1].id;
       const side:BridgeSide=isLeft?'left':isRight?'right':x<nearPost.x?'left':'right';
-      let si=Math.max(0,Math.min(n-2,Math.round((y-strandZeroY)/SG)));
       const bt:BridgeType=tool==='ht_bridge'?'ht':'earth';
-      if(bt==='ht'&&si%2!==0)si=si>0?si-1:0;
-      if(bt==='earth'&&si%2===0)si=si+1<n?si+1:si-1;
-      if(si+2>n)return;
+      let si=Math.max(0,Math.min(n-2,Math.round((y-strandZeroY)/SG)));
+      if(si+2>n)si=n-2;
+      if(si<0)si=0;
       const seg=segments.find(s=>{
         const pa=posts.find(p=>p.id===s.postA);
         const pb=posts.find(p=>p.id===s.postB);
