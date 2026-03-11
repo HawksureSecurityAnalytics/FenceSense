@@ -38,12 +38,12 @@ export default function DrawScreen(){
   const pTop=PTOP,pBot=PTOP+strandH+PBOT;
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
   const tapStart=useRef({x:0,y:0});
+  const canvasTop=useRef(0);
   const panResponder=useRef(PanResponder.create({
     onStartShouldSetPanResponder:()=>true,
     onMoveShouldSetPanResponder:(_,gs)=>Math.abs(gs.dx)>4||Math.abs(gs.dy)>4,
-    onPanResponderGrant:(e,gs)=>{
-      const t=e.nativeEvent.touches[0];
-      tapStart.current={x:t.locationX,y:t.locationY};
+    onPanResponderGrant:(_,gs)=>{
+      tapStart.current={x:gs.x0,y:gs.y0-canvasTop.current};
       panStart.current={x:panX.current,y:panY.current};
     },
     onPanResponderMove:(_,gs)=>{
@@ -263,7 +263,7 @@ export default function DrawScreen(){
         </TouchableOpacity>
       </View>
 
-      <View style={{flex:1,overflow:'hidden'}} {...panResponder.panHandlers}>
+      <View style={{flex:1,overflow:'hidden'}} {...panResponder.panHandlers} onLayout={(e)=>{canvasTop.current=e.nativeEvent.layout.y;}}>
           <Animated.View style={{position:'absolute',top:0,left:0,width:CW,height:CH,transform:[{translateX:animX},{translateY:animY},{scale:scaleAnim}]}}>
           <Svg width={CW} height={CH} viewBox={`0 0 ${CW} ${CH}`}>
 
