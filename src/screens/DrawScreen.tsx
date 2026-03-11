@@ -38,6 +38,7 @@ export default function DrawScreen(){
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
   const tapStart=useRef({x:0,y:0});
   const canvasTop=useRef(0);
+  const oYRef=useRef(0);
   const panResponder=useRef(PanResponder.create({
     onStartShouldSetPanResponder:()=>true,
     onMoveShouldSetPanResponder:(_,gs)=>Math.abs(gs.dx)>4||Math.abs(gs.dy)>4,
@@ -63,6 +64,7 @@ export default function DrawScreen(){
     },
   })).current;
   const oY=CH/2-(pTop+strandH/2);
+  oYRef.current=oY;
 
   useEffect(()=>{
     if(posts.length<2){setSegments([]);return;}
@@ -93,9 +95,9 @@ export default function DrawScreen(){
       const isRight=nearPost.id===sorted[sorted.length-1].id;
       const side:BridgeSide=isLeft?'left':isRight?'right':x<nearPost.x?'left':'right';
       const bt:BridgeType=tool==='ht_bridge'?'ht':'earth';
-      let si=Math.max(0,Math.min(n-2,Math.round((y-strandZeroY)/SG)));
-      if(si+2>n)si=n-2;
-      if(si<0)si=0;
+      const strandZeroYNow=oYRef.current+PTOP+PBOT/2;
+      let si=Math.round((y-strandZeroYNow)/SG);
+      si=Math.max(0,Math.min(n-2,si));
       const seg=segments.find(s=>{
         const pa=posts.find(p=>p.id===s.postA);
         const pb=posts.find(p=>p.id===s.postB);
