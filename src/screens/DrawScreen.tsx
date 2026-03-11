@@ -318,9 +318,15 @@ export default function DrawScreen(){
             {bridges.map(b=>{
               const postForSide=b.side==='left'?sorted[0]:sorted[sorted.length-1];
               if(!postForSide)return null;
-              const px=postForSide.x,dir=b.side==='left'?-1:1;
+              const seg2=segments.find(s=>s.id===b.segmentId);
+              if(!seg2)return null;
+              const pA2=posts.find(p=>p.id===seg2.postA);
+              const pB2=posts.find(p=>p.id===seg2.postB);
+              if(!pA2||!pB2)return null;
+              const px=b.side==='left'?Math.min(pA2.x,pB2.x):Math.max(pA2.x,pB2.x);
+              const dir=b.side==='left'?-1:1;
               const iB=b.strandIndex+2;
-              if(iB>=n)return null;
+              if(iB>n||b.strandIndex<0)return null;
               const yA=oY+sY(b.strandIndex),yB=oY+sY(iB);
               const cx=px+dir*CLIP;
               const col=bCol(b);
