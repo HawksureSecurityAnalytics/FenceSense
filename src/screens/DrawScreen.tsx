@@ -42,8 +42,8 @@ export default function DrawScreen(){
   const panResponder=useRef(PanResponder.create({
     onStartShouldSetPanResponder:()=>true,
     onMoveShouldSetPanResponder:(_,gs)=>Math.abs(gs.dx)>4||Math.abs(gs.dy)>4,
-    onPanResponderGrant:(_,gs)=>{
-      tapStart.current={x:gs.x0,y:gs.y0};
+    onPanResponderGrant:(e,gs)=>{
+      tapStart.current={x:gs.x0,y:e.nativeEvent.locationY};
       panStart.current={x:panX.current,y:panY.current};
     },
     onPanResponderMove:(_,gs)=>{
