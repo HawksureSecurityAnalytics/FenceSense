@@ -98,6 +98,7 @@ export default function DrawScreen(){
       const strandZeroYNow=oYRef.current+PTOP+PBOT/2;
       let si=Math.round((y-strandZeroYNow)/SG);
       si=Math.max(0,Math.min(n-2,si));
+      console.log('BRIDGE TAP rawY='+rawY+' canvasTop='+canvasTop.current+' panY='+panY.current+' scale='+scaleRef.current+' y='+y+' oY='+oYRef.current+' strandZeroY='+strandZeroYNow+' si='+si);
       const seg=segments.find(s=>{
         const pa=posts.find(p=>p.id===s.postA);
         const pb=posts.find(p=>p.id===s.postB);
