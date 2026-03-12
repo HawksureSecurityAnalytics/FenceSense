@@ -38,6 +38,7 @@ export default function DrawScreen(){
   const sY=(i:number)=>PTOP+PBOT/2+i*SG;
   const tapStart=useRef({x:0,y:0});
   const canvasTop=useRef(0);
+  const canvasH=useRef(SH);
   const oYRef=useRef(0);
   const panResponder=useRef(PanResponder.create({
     onStartShouldSetPanResponder:()=>true,
@@ -78,7 +79,7 @@ export default function DrawScreen(){
   },[posts.length]);
 
   const tap=useCallback((rawX:number,rawY:number)=>{
-    const x=(rawX-panX.current)/scaleRef.current,y=(rawY-panY.current)/scaleRef.current;
+    const x=(rawX-panX.current)/scaleRef.current,y=rawY*(CH/canvasH.current)/scaleRef.current+(-panY.current/scaleRef.current);
     const strandZeroY=oY+PTOP+PBOT/2;
     const tool=toolRef.current;
     if(tool==='post'){
@@ -97,6 +98,9 @@ export default function DrawScreen(){
       const bt:BridgeType=tool==='ht_bridge'?'ht':'earth';
       const strandZeroYNow=oYRef.current+PTOP+PBOT/2;
       let si=Math.round((y-strandZeroYNow)/SG);
+      // Snap to correct strand type: HT=even, Earth=odd
+      if(bt==='ht'&&si%2!==0)si=si%2===1?si-1:si+1;
+      if(bt==='earth'&&si%2===0)si=si+1<n?si+1:si-1;
       si=Math.max(0,Math.min(n-2,si));
       
       const seg=segments.find(s=>{
@@ -105,16 +109,8 @@ export default function DrawScreen(){
         return (pa&&Math.abs(pa.x-nearPost.x)<5)||(pb&&Math.abs(pb.x-nearPost.x)<5);
       });
       const segId=seg?.id??segments[0]?.id??'';
-      // Find next available strand index for this type/side/segment
-      let placed=false;
-      for(let trysi=0;trysi<=n-2;trysi++){
-        if(!bridges.some(b=>b.segmentId===segId&&b.type===bt&&b.side===side&&b.strandIndex===trysi)){
-          setBridges(b=>[...b,{id:uid(),segmentId:segId,strandIndex:trysi,type:bt,side}]);
-          placed=true;
-          break;
-        }
-      }
-      if(!placed)Alert.alert('All bridges placed for this post');
+      if(bridges.some(b=>b.segmentId===segId&&b.type===bt&&b.side===side&&b.strandIndex===si)){Alert.alert('Already placed');return;}
+      setBridges(b=>[...b,{id:uid(),segmentId:segId,strandIndex:si,type:bt,side}]);
       return;
     }
     if(tool==='fault'&&segments.length>0){
@@ -286,7 +282,7 @@ export default function DrawScreen(){
         </TouchableOpacity>
       </View>
 
-      <View style={{flex:1,overflow:'hidden'}} {...panResponder.panHandlers} onLayout={(e)=>{canvasTop.current=e.nativeEvent.layout.y;}}>
+      <View style={{flex:1,overflow:'hidden'}} {...panResponder.panHandlers} onLayout={(e)=>{canvasTop.current=e.nativeEvent.layout.y;canvasH.current=e.nativeEvent.layout.height;}}>
           <Svg width="100%" height="100%" viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`}>
 
             {/* Grid dots */}
