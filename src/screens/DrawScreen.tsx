@@ -277,7 +277,13 @@ export default function DrawScreen(){
         <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.1,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:canvasH.current/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;setScale(1);setViewBox({x:0,y:0,w:SW,h:canvasH.current});}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;
+          const fenceX=sorted.length>0?sorted[0].x:110;
+          const fenceCY=oYRef.current+CH/4;
+          panX.current=-(fenceX-SW/4);
+          panY.current=-(fenceCY-canvasH.current/2);
+          setScale(1);
+          setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:canvasH.current/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>⊙</Text>
         </TouchableOpacity>
       </View>

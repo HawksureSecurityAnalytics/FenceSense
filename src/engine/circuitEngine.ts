@@ -69,7 +69,8 @@ export function generateCorrectBridges(segments:Segment[],strandCount:number):Br
   const bridges:Bridge[]=[];
   const htS=Array.from({length:strandCount},(_,i)=>i).filter(i=>i%2===0);
   const eS=Array.from({length:strandCount},(_,i)=>i).filter(i=>i%2===1);
-  const segId=segments[0]?.id??'seg0';
+  const lastSeg=segments[segments.length-1];
+  const segId=lastSeg?.id??'seg0';
   htS.forEach((si,k)=>{ if(k>=htS.length-1)return; const side=k%2===0?'right':'left'; bridges.push({id:`ht-${side}-${si}`,segmentId:segId,strandIndex:si,type:'ht',side}); });
   eS.forEach((si,k)=>{ if(k>=eS.length-1)return; const side=k%2===0?'left':'right'; bridges.push({id:`earth-${side}-${si}`,segmentId:segId,strandIndex:si,type:'earth',side}); });
   return bridges;
