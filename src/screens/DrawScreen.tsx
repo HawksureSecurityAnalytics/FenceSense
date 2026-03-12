@@ -29,7 +29,7 @@ export default function DrawScreen(){
   const[scale,setScale]=useState(1);
   const panX=useRef(0);
   const panY=useRef(0);
-  const[viewBox,setViewBox]=useState({x:-SW/2+100,y:-SH/2+CH/2,w:SW,h:SH});
+  const[viewBox,setViewBox]=useState({x:0,y:0,w:SW,h:SH});
   const scaleRef=useRef(1);
   const panStart=useRef({x:0,y:0});
   const rafPending=useRef(false);
@@ -54,7 +54,7 @@ export default function DrawScreen(){
         rafPending.current=true;
         requestAnimationFrame(()=>{
           rafPending.current=false;
-          setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});
+          setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:canvasH.current/scaleRef.current});
         });
       }
     },
@@ -79,7 +79,7 @@ export default function DrawScreen(){
   },[posts.length]);
 
   const tap=useCallback((rawX:number,rawY:number)=>{
-    const x=(rawX-panX.current)/scaleRef.current,y=rawY*(CH/canvasH.current)/scaleRef.current+(-panY.current/scaleRef.current);
+    const x=(rawX-panX.current)/scaleRef.current,y=(rawY-panY.current)/scaleRef.current;
     const strandZeroY=oY+PTOP+PBOT/2;
     const tool=toolRef.current;
     if(tool==='post'){
@@ -271,13 +271,13 @@ export default function DrawScreen(){
           {tool==='gate'&&'🚪 Tap between posts to place gate — tap gate to toggle open/closed'}
           {tool==='delete'&&'✕ Tap a post to remove it'}
         </Text>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.min(8,+(scaleRef.current+0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:canvasH.current/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.1,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:SH/scaleRef.current});}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=Math.max(0.1,+(scaleRef.current-0.25).toFixed(2));setScale(scaleRef.current);setViewBox({x:-panX.current/scaleRef.current,y:-panY.current/scaleRef.current,w:SW/scaleRef.current,h:canvasH.current/scaleRef.current});}}>
           <Text style={s.zBtnTxt}>－</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;setScale(1);setViewBox({x:0,y:0,w:SW,h:SH});}}>
+        <TouchableOpacity style={s.zBtn} onPress={()=>{scaleRef.current=1;panX.current=0;panY.current=0;setScale(1);setViewBox({x:0,y:0,w:SW,h:canvasH.current});}}>
           <Text style={s.zBtnTxt}>⊙</Text>
         </TouchableOpacity>
       </View>
