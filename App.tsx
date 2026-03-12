@@ -7,6 +7,7 @@ import DesignScreen from './src/screens/DesignScreen';
 import DrawScreen from './src/screens/DrawScreen';
 import DiagnosticsScreen from './src/screens/DiagnosticsScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
+import ProcurementScreen from './src/screens/ProcurementScreen';
 import { colors, spacing } from './src/theme';
 
 type Tab = 'design' | 'draw' | 'diagnostics' | 'projects';
@@ -14,8 +15,9 @@ type Tab = 'design' | 'draw' | 'diagnostics' | 'projects';
 const TABS: {key:Tab;icon:string;label:string}[] = [
   {key:'design',      icon:'📐', label:'Schem'},
   {key:'draw',        icon:'✏️', label:'Draw'},
-  {key:'diagnostics', icon:'🔍', label:'Diagnose'},
-  {key:'projects',    icon:'📁', label:'Projects'},
+  {key:'diagnostics',  icon:'🔍', label:'Diagnose'},
+  {key:'procurement', icon:'📋', label:'Procure'},
+  {key:'projects',     icon:'📁', label:'Projects'},
 ];
 
 export default function App() {
@@ -49,6 +51,7 @@ export default function App() {
           )}
           {tab === 'draw' && <DrawScreen/>}
           {tab === 'diagnostics' && <DiagnosticsScreen/>}
+          {tab === 'procurement' && <ProcurementScreen/>}
           {tab === 'projects' && <ProjectsScreen onOpenProject={handleOpenProject}/>}
         </View>
 
