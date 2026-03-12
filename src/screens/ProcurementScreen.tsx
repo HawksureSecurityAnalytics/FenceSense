@@ -265,7 +265,6 @@ export default function ProcurementScreen(){
             <Text style={s.note}>• COC required for all installations (SANS 10222-3)</Text>
             <Text style={s.note}>• Quantities include 10% waste allowance on wire</Text>
           </View>
-        </View>
 
           <TouchableOpacity style={s.shareBtn} onPress={shareReport}>
             <Text style={s.shareBtnTxt}>📤 EXPORT / SHARE REPORT</Text>
