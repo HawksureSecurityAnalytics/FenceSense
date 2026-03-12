@@ -69,9 +69,26 @@ export function generateCorrectBridges(segments:Segment[],strandCount:number):Br
   const bridges:Bridge[]=[];
   const htS=Array.from({length:strandCount},(_,i)=>i).filter(i=>i%2===0);
   const eS=Array.from({length:strandCount},(_,i)=>i).filter(i=>i%2===1);
+  const firstSeg=segments[0];
   const lastSeg=segments[segments.length-1];
-  const segId=lastSeg?.id??'seg0';
-  htS.forEach((si,k)=>{ if(k>=htS.length-1)return; const side=k%2===0?'right':'left'; bridges.push({id:`ht-${side}-${si}`,segmentId:segId,strandIndex:si,type:'ht',side}); });
-  eS.forEach((si,k)=>{ if(k>=eS.length-1)return; const side=k%2===0?'left':'right'; bridges.push({id:`earth-${side}-${si}`,segmentId:segId,strandIndex:si,type:'earth',side}); });
+  // Serpentine wiring: bridges alternate left/right on first and last segments
+  // HT strands: 0-2 on right of last, 2-4 on left of first, 4-6 on right of last...
+  // Earth strands: 1-3 on left of last, 3-5 on right of first, 5-7 on left of last...
+  htS.forEach((si,k)=>{
+    if(k>=htS.length-1)return;
+    const onLast=k%2===0;
+    const seg=onLast?lastSeg:firstSeg;
+    if(!seg)return;
+    const side=onLast?'right':'left';
+    bridges.push({id:`ht-${seg.id}-${si}`,segmentId:seg.id,strandIndex:si,type:'ht',side});
+  });
+  eS.forEach((si,k)=>{
+    if(k>=eS.length-1)return;
+    const onLast=k%2===0;
+    const seg=onLast?lastSeg:firstSeg;
+    if(!seg)return;
+    const side=onLast?'left':'right';
+    bridges.push({id:`earth-${seg.id}-${si}`,segmentId:seg.id,strandIndex:si,type:'earth',side});
+  });
   return bridges;
 }
