@@ -20,24 +20,13 @@ interface Results{
   warningSigns:number;
   htWire:number;
   fenceWire:number;
-  energizerModel:string;
-  energizerJoules:number;
+  reqJoules:number;
   totalWireLength:number;
 }
 
-const ENERGIZERS=[
-  {model:'Nemtek Druid 5',joules:1.7,maxKm:1},
-  {model:'Nemtek Druid 10',joules:3.0,maxKm:2},
-  {model:'Nemtek Druid 15',joules:4.6,maxKm:3},
-  {model:'Nemtek Druid 25',joules:7.5,maxKm:5},
-  {model:'Nemtek Druid 28',joules:12.0,maxKm:8},
-  {model:'Nemtek Titan 30',joules:18.0,maxKm:12},
-  {model:'Nemtek Titan 50',joules:30.0,maxKm:20},
-];
-
-function pickEnergizer(totalWireKm:number):{model:string;joules:number}{
-  for(const e of ENERGIZERS){if(totalWireKm<=e.maxKm)return e;}
-  return ENERGIZERS[ENERGIZERS.length-1];
+function requiredJoules(totalWireKm:number):number{
+  // Industry standard: 1 Joule per 100m (0.1km) of total wire
+  return Math.ceil(totalWireKm/0.1)*0.1;
 }
 
 export default function ProcurementScreen(){
@@ -73,7 +62,7 @@ export default function ProcurementScreen(){
     // Gate contacts: 1 per gate
     const gateContacts=G;
     // Earth spikes: 3 minimum + 1 per 500m
-    const earthSpikes=Math.max(3,3+Math.floor(P/500));
+    const earthSpikes=3+Math.ceil(P/30); // 3 at energizer + 1 per 30m fence
     // Warning signs: 1 per 10m (SANS 10222-3)
     const warningSignsRaw=Math.ceil(P/10);
     const warningSigns=Math.max(warningSignsRaw,4); // min 4
@@ -85,7 +74,7 @@ export default function ProcurementScreen(){
     const fenceWire=Math.ceil(fenceWireRaw*1.1);
     // Total wire in km for energizer sizing
     const totalWireKm=(fenceWire+htWire)/1000;
-    const energizer=pickEnergizer(totalWireKm);
+    const reqJoules=Math.ceil(requiredJoules(totalWireKm)*10)/10;
 
     setResults({
       poles:totalPoles,
@@ -98,8 +87,7 @@ export default function ProcurementScreen(){
       ferrules,
       htWire,
       fenceWire,
-      energizerModel:energizer.model,
-      energizerJoules:energizer.joules,
+      reqJoules,
       totalWireLength:Math.round(totalWireKm*100)/100,
     } as any);
   },[installType,perimeter,gates,gateWidth,strands,energizerDist]);
@@ -120,8 +108,7 @@ export default function ProcurementScreen(){
       `Energizer dist: ${energizerDist} m`,
       '',
       '── ENERGIZER ──────────────────────',
-      `Model        : ${r.energizerModel}`,
-      `Output       : ${r.energizerJoules} Joules`,
+      `Min. Joules  : ${r.reqJoules} J (1J per 100m wire)`,
       `Wire Load    : ${r.totalWireLength} km`,
       '',
       '── STRUCTURAL ─────────────────────',
@@ -228,9 +215,9 @@ export default function ProcurementScreen(){
 
           <View style={s.card}>
             <Text style={s.cardTitle}>⚡ ENERGIZER</Text>
-            <Row label="Recommended Model" value={results.energizerModel} highlight/>
-            <Row label="Output Energy" value={results.energizerJoules} unit="Joules"/>
+            <Row label="Min. Energizer Output" value={(results as any).reqJoules} unit="Joules" highlight/>
             <Row label="Total Wire Load" value={results.totalWireLength} unit="km"/>
+            <Row label="Rule of thumb" value="1J per 100m wire" />
           </View>
 
           <View style={s.card}>
@@ -238,7 +225,9 @@ export default function ProcurementScreen(){
             <Row label="Fence Poles (total)" value={results.poles}/>
             <Row label="  — End / Corner Posts" value={results.endPosts}/>
             <Row label="  — Intermediate Poles" value={results.poles-results.endPosts}/>
-            <Row label="Earth Spikes" value={results.earthSpikes}/>
+            <Row label="Earth Spikes" value={(results as any).earthSpikes}/>
+            <Row label="  — At Energizer" value="3 (mandatory)"/>
+            <Row label="  — Along Fence" value={Math.ceil(parseFloat(perimeter||'0')/30)} unit="@ 30m"/>
           </View>
 
           <View style={s.card}>
