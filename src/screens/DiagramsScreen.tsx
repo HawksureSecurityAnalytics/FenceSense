@@ -1,6 +1,6 @@
 import React,{useState}from 'react';
-import{View,Text,TouchableOpacity,ScrollView,StyleSheet,Dimensions,useWindowDimensions}from 'react-native';
-import RenderHtml from 'react-native-render-html';
+import{View,Text,TouchableOpacity,ScrollView,StyleSheet,Dimensions}from 'react-native';
+import Svg,{Line,Rect,Circle,Path,Text as ST,G,Defs,Marker}from 'react-native-svg';
 
 const C={bg:'#0d1219',panel:'#111827',border:'#1e293b',energizer:'#f59e0b',text:'#e2e8f0',muted:'#64748b',card:'#1a2332'};
 
@@ -178,6 +178,199 @@ ${[280,350,420].map(x=>`<rect x="${x-4}" y="214" width="8" height="75" rx="2" fi
   return svgs[id]||'';
 };
 
+const W=Dimensions.get('window').width-24;
+
+const W=Dimensions.get('window').width-24;
+
+function Posts({xs,col='#475569',h=180,y0=50}:{xs:number[],col?:string,h?:number,y0?:number}){
+  return(<G>{xs.map((x,i)=><Rect key={i} x={x-5} y={y0} width={10} height={h} rx={3} fill={col} opacity={0.9}/>)}</G>);
+}
+function Strands({n,y0,gap,x1,x2}:{n:number,y0:number,gap:number,x1:number,x2:number}){
+  return(<G>{Array.from({length:n},(_,si)=>{
+    const y=y0+si*gap;const col=si%2===0?'#ef4444':'#22c55e';
+    return(<G key={si}><Line x1={x1} y1={y} x2={x2} y2={y} stroke={col} strokeWidth={2.5}/></G>);
+  })}</G>);
+}
+function EarthSpikes({x,y}:{x:number,y:number}){
+  return(<G>{[0,14,28].map(dx=>(<G key={dx}>
+    <Line x1={x+dx} y1={y} x2={x+dx} y2={y+30} stroke="#22c55e" strokeWidth={2.5}/>
+    <Line x1={x+dx-6} y1={y+30} x2={x+dx+6} y2={y+30} stroke="#22c55e" strokeWidth={2}/>
+    <Line x1={x+dx-3} y1={y+37} x2={x+dx+3} y2={y+37} stroke="#22c55e" strokeWidth={1.5}/>
+  </G>))}</G>);
+}
+
+function SvgDiagram({id}:{id:string}){
+  const H=260;
+  if(id==='serpentine'){
+    const posts=[85,175,265,355,W-20];
+    const n=8,y0=45,gap=19;
+    return(<Svg width={W} height={H}>
+      <Rect width={W} height={H} fill="#080e14" rx={8}/>
+      <Rect x={4} y={62} width={52} height={110} rx={5} fill="#111827" stroke="#f59e0b" strokeWidth={2}/>
+      <ST x={30} y={90} textAnchor="middle" fill="#f59e0b" fontSize={8} fontWeight="bold">ENRGZR</ST>
+      <Circle cx={30} cy={112} r={10} fill="#1a2332" stroke="#ef4444" strokeWidth={2}/>
+      <ST x={30} y={116} textAnchor="middle" fill="#ef4444" fontSize={7}>HT</ST>
+      <Circle cx={30} cy={138} r={10} fill="#1a2332" stroke="#22c55e" strokeWidth={2}/>
+      <ST x={30} y={142} textAnchor="middle" fill="#22c55e" fontSize={7}>E</ST>
+      <Posts xs={posts}/>
+      {posts.map((px,i)=><ST key={i} x={px} y={40} textAnchor="middle" fill="#94a3b8" fontSize={9}>{i===0?'END-L':i===posts.length-1?'END-R':`P${i}`}</ST>)}
+      <Strands n={n} y0={y0} gap={gap} x1={56} x2={W-15}/>
+      {[0,2,4,6].map(si=>{const y=y0+si*gap;return(<Path key={si} d={`M${posts[0]-6},${y} Q${posts[0]-20},${y+gap/2} ${posts[0]-6},${y+gap}`} stroke="#ef4444" strokeWidth={2.5} fill="none"/>);})}
+      {[1,3,5].map(si=>{const y=y0+si*gap;return(<Path key={si} d={`M${posts[posts.length-1]+6},${y} Q${posts[posts.length-1]+20},${y+gap/2} ${posts[posts.length-1]+6},${y+gap}`} stroke="#22c55e" strokeWidth={2.5} fill="none"/>);})}
+      <ST x={posts[0]-22} y={H/2} textAnchor="middle" fill="#ef4444" fontSize={7} rotation={-90} originX={posts[0]-22} originY={H/2}>HT BRIDGES</ST>
+      <ST x={posts[posts.length-1]+22} y={H/2} textAnchor="middle" fill="#22c55e" fontSize={7} rotation={90} originX={posts[posts.length-1]+22} originY={H/2}>EARTH BRIDGES</ST>
+      <EarthSpikes x={8} y={195}/>
+      <ST x={22} y={242} textAnchor="middle" fill="#22c55e" fontSize={7}>3x SPIKES 1.2m</ST>
+      <Line x1={56} y1={112} x2={83} y2={y0} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <Line x1={56} y1={138} x2={83} y2={y0+gap} stroke="#22c55e" strokeWidth={1.5} strokeDasharray="4,3"/>
+    </Svg>);
+  }
+  if(id==='gate_series'){
+    const gx1=W*0.38,gx2=W*0.62;
+    const n=6,y0=52,gap=24;
+    return(<Svg width={W} height={H}>
+      <Rect width={W} height={H} fill="#080e14" rx={8}/>
+      <Posts xs={[40,gx1,gx2,W-30]}/>
+      <Rect x={gx1-5} y={50} width={10} height={175} rx={3} fill="#6d28d9" opacity={0.9}/>
+      <Rect x={gx2-5} y={50} width={10} height={175} rx={3} fill="#6d28d9" opacity={0.9}/>
+      <Rect x={gx1+5} y={50} width={gx2-gx1-10} height={175} fill="#1a0a2e" opacity={0.4}/>
+      <ST x={(gx1+gx2)/2} y={40} textAnchor="middle" fill="#a78bfa" fontSize={9}>GATE L / GATE R</ST>
+      <ST x={40} y={40} textAnchor="middle" fill="#94a3b8" fontSize={8}>END-L</ST>
+      <ST x={W-30} y={40} textAnchor="middle" fill="#94a3b8" fontSize={8}>END-R</ST>
+      <Strands n={n} y0={y0} gap={gap} x1={45} x2={gx1-5}/>
+      <Strands n={n} y0={y0} gap={gap} x1={gx2+5} x2={W-25}/>
+      <Rect x={gx1} y={235} width={gx2-gx1} height={12} rx={3} fill="#1e293b" stroke="#64748b" strokeWidth={1}/>
+      <ST x={(gx1+gx2)/2} y={245} textAnchor="middle" fill="#94a3b8" fontSize={7}>HT IN CONDUIT</ST>
+      <Rect x={(gx1+gx2)/2-28} y={110} width={56} height={42} rx={5} fill="#1a0a2e" stroke="#a78bfa" strokeWidth={2}/>
+      <ST x={(gx1+gx2)/2} y={127} textAnchor="middle" fill="#a78bfa" fontSize={9} fontWeight="bold">GATE</ST>
+      <ST x={(gx1+gx2)/2} y={143} textAnchor="middle" fill="#a78bfa" fontSize={9} fontWeight="bold">CONTACT</ST>
+      <Rect x={(gx1+gx2)/2-35} y={162} width={70} height={18} rx={4} fill="#7f1d1d" stroke="#ef4444" strokeWidth={1}/>
+      <ST x={(gx1+gx2)/2} y={175} textAnchor="middle" fill="#ef4444" fontSize={8} fontWeight="bold">OPEN=ALARM</ST>
+      {[0,2,4].map(si=>{const y=y0+si*gap;return(<G key={si}><Line x1={gx1-5} y1={y} x2={gx1-5} y2={235} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3,3"/><Line x1={gx2+5} y1={y} x2={gx2+5} y2={235} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3,3"/></G>);})}
+      {[0,2,4].map(si=>{const y=y0+si*gap;return(<G key={si}><Path d={`M35,${y} Q20,${y+gap/2} 35,${y+gap}`} stroke="#ef4444" strokeWidth={2} fill="none"/></G>);})}
+      {[1,3].map(si=>{const y=y0+si*gap;return(<G key={si}><Path d={`M${W-25},${y} Q${W-12},${y+gap/2} ${W-25},${y+gap}`} stroke="#22c55e" strokeWidth={2} fill="none"/></G>);})}
+    </Svg>);
+  }
+  if(id==='gate_bypass'){
+    const gx1=W*0.36,gx2=W*0.64;
+    const n=6,y0=55,gap=24;
+    return(<Svg width={W} height={H}>
+      <Rect width={W} height={H} fill="#080e14" rx={8}/>
+      <Posts xs={[40,gx1,gx2,W-30]}/>
+      <Rect x={gx1-5} y={50} width={10} height={170} rx={3} fill="#6d28d9" opacity={0.9}/>
+      <Rect x={gx2-5} y={50} width={10} height={170} rx={3} fill="#6d28d9" opacity={0.9}/>
+      <Rect x={gx1+5} y={50} width={gx2-gx1-10} height={170} fill="#0a1a0a" opacity={0.4}/>
+      <ST x={(gx1+gx2)/2} y={28} textAnchor="middle" fill="#22c55e" fontSize={8}>BYPASS LOOPS</ST>
+      <ST x={40} y={40} textAnchor="middle" fill="#94a3b8" fontSize={8}>END-L</ST>
+      <ST x={(gx1+gx2)/2} y={40} textAnchor="middle" fill="#a78bfa" fontSize={8}>GATE OPENING</ST>
+      <ST x={W-30} y={40} textAnchor="middle" fill="#94a3b8" fontSize={8}>END-R</ST>
+      <Strands n={n} y0={y0} gap={gap} x1={45} x2={gx1-5}/>
+      <Strands n={n} y0={y0} gap={gap} x1={gx2+5} x2={W-25}/>
+      {Array.from({length:n},(_,si)=>{const y=y0+si*gap;const col=si%2===0?'#ef4444':'#22c55e';const lift=25+si*4;return(<Path key={si} d={`M${gx1-4},${y} Q${(gx1+gx2)/2},${y-lift} ${gx2+4},${y}`} stroke={col} strokeWidth={2} fill="none" strokeDasharray="5,3"/>);})}
+      {[0,2,4].map(si=>{const y=y0+si*gap;return(<Path key={si} d={`M35,${y} Q20,${y+gap/2} 35,${y+gap}`} stroke="#ef4444" strokeWidth={2} fill="none"/>);})}
+      {[1,3].map(si=>{const y=y0+si*gap;return(<Path key={si} d={`M${W-25},${y} Q${W-12},${y+gap/2} ${W-25},${y+gap}`} stroke="#22c55e" strokeWidth={2} fill="none"/>);})}
+      <Rect x={(gx1+gx2)/2-38} y={200} width={76} height={22} rx={4} fill="#111827" stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="4,2"/>
+      <ST x={(gx1+gx2)/2} y={215} textAnchor="middle" fill="#a78bfa" fontSize={8}>Optional Gate Contact</ST>
+      <ST x={(gx1+gx2)/2} y={248} textAnchor="middle" fill="#64748b" fontSize={7}>Fence active even when gate open</ST>
+    </Svg>);
+  }
+  if(id==='corner'){
+    const cx=W/2-10,cy=120;
+    const n=6,gap=20;
+    return(<Svg width={W} height={H}>
+      <Rect width={W} height={H} fill="#080e14" rx={8}/>
+      <Rect x={cx-8} y={cy-8} width={16} height={16} rx={3} fill="#64748b" stroke="#94a3b8" strokeWidth={2}/>
+      <ST x={cx} y={cy-16} textAnchor="middle" fill="#e2e8f0" fontSize={9} fontWeight="bold">CORNER POST</ST>
+      <Line x1={cx} y1={cy} x2={cx-70} y2={cy+65} stroke="#475569" strokeWidth={5} strokeLinecap="round" opacity={0.6}/>
+      <ST x={cx-75} y={cy+80} fill="#64748b" fontSize={8}>STAY</ST>
+      <Line x1={cx} y1={cy} x2={cx+65} y2={cy+65} stroke="#475569" strokeWidth={5} strokeLinecap="round" opacity={0.6}/>
+      <ST x={cx+55} y={cy+80} fill="#64748b" fontSize={8}>STAY</ST>
+      {Array.from({length:n},(_,si)=>{const y=cy-50+si*gap;const col=si%2===0?'#ef4444':'#22c55e';return(<Line key={si} x1={8} y1={y} x2={cx} y2={y} stroke={col} strokeWidth={2.5}/>);})}
+      {Array.from({length:n},(_,si)=>{const x=cx+18+si*gap;const col=si%2===0?'#ef4444':'#22c55e';return(<Line key={si} x1={x} y1={cy} x2={x} y2={H-20} stroke={col} strokeWidth={2.5}/>);})}
+      {Array.from({length:n},(_,si)=>{const y=cy-50+si*gap;const x=cx+18+si*gap;const col=si%2===0?'#ef4444':'#22c55e';return(<Path key={si} d={`M${cx},${y} Q${x},${y} ${x},${cy}`} stroke={col} strokeWidth={2} fill="none" strokeDasharray="4,2"/>);})}
+      <Rect x={cx+4} y={cy-55} width={42} height={14} rx={3} fill="#7f1d1d" stroke="#ef4444" strokeWidth={1}/>
+      <ST x={cx+25} y={cy-44} textAnchor="middle" fill="#ef4444" fontSize={7}>HT→HT</ST>
+      <Rect x={cx+4} y={cy-38} width={48} height={14} rx={3} fill="#14532d" stroke="#22c55e" strokeWidth={1}/>
+      <ST x={cx+28} y={cy-27} textAnchor="middle" fill="#22c55e" fontSize={7}>EARTH→E</ST>
+      <ST x={W/2} y={H-8} textAnchor="middle" fill="#64748b" fontSize={7}>Stay lugs used — never weld stays</ST>
+    </Svg>);
+  }
+  if(id==='energizer'){
+    return(<Svg width={W} height={H}>
+      <Rect width={W} height={H} fill="#080e14" rx={8}/>
+      <Rect x={6} y={22} width={105} height={155} rx={5} fill="#111827" stroke="#1e293b" strokeWidth={1.5}/>
+      <ST x={58} y={38} textAnchor="middle" fill="#475569" fontSize={8}>BUILDING</ST>
+      <Rect x={14} y={46} width={88} height={96} rx={5} fill="#1a2332" stroke="#f59e0b" strokeWidth={2.5}/>
+      <ST x={58} y={66} textAnchor="middle" fill="#f59e0b" fontSize={9} fontWeight="bold">ENERGIZER</ST>
+      <Rect x={22} y={72} width={72} height={14} rx={2} fill="#111827" stroke="#f59e0b" strokeWidth={1}/>
+      <ST x={58} y={83} textAnchor="middle" fill="#f59e0b" fontSize={7}>LCD DISPLAY</ST>
+      <Rect x={22} y={92} width={32} height={14} rx={2} fill="#7f1d1d" stroke="#ef4444" strokeWidth={1.5}/>
+      <ST x={38} y={103} textAnchor="middle" fill="#ef4444" fontSize={7}>FENCE+</ST>
+      <Rect x={58} y={92} width={32} height={14} rx={2} fill="#14532d" stroke="#22c55e" strokeWidth={1.5}/>
+      <ST x={74} y={103} textAnchor="middle" fill="#22c55e" fontSize={7}>EARTH</ST>
+      <Rect x={22} y={112} width={72} height={14} rx={2} fill="#1e293b" stroke="#64748b" strokeWidth={1}/>
+      <ST x={58} y={123} textAnchor="middle" fill="#64748b" fontSize={7}>220V MAINS</ST>
+      <Rect x={111} y={92} width={155} height={12} rx={3} fill="#2d1515" stroke="#ef4444" strokeWidth={1.5}/>
+      <ST x={188} y={102} textAnchor="middle" fill="#ef4444" fontSize={7}>HT LIVE — CONDUIT A</ST>
+      <Line x1={54} y1={99} x2={111} y2={98} stroke="#ef4444" strokeWidth={2}/>
+      <Rect x={111} y={110} width={155} height={12} rx={3} fill="#0d2d15" stroke="#22c55e" strokeWidth={1.5}/>
+      <ST x={188} y={120} textAnchor="middle" fill="#22c55e" fontSize={7}>EARTH — CONDUIT B</ST>
+      <Line x1={74} y1={106} x2={111} y2={116} stroke="#22c55e" strokeWidth={2}/>
+      <Rect x={120} y={128} width={138} height={14} rx={3} fill="#451a03" stroke="#f97316" strokeWidth={1.5}/>
+      <ST x={189} y={139} textAnchor="middle" fill="#f97316" fontSize={7} fontWeight="bold">NEVER SAME CONDUIT!</ST>
+      <Circle cx={295} cy={98} r={13} fill="#1a2332" stroke="#f59e0b" strokeWidth={2}/>
+      <ST x={295} y={95} textAnchor="middle" fill="#f59e0b" fontSize={6.5} fontWeight="bold">LGHT</ST>
+      <ST x={295} y={106} textAnchor="middle" fill="#f59e0b" fontSize={6.5}>DIV</ST>
+      <Line x1={266} y1={98} x2={282} y2={98} stroke="#ef4444" strokeWidth={2}/>
+      <Line x1={308} y1={98} x2={330} y2={98} stroke="#ef4444" strokeWidth={2}/>
+      <Rect x={330} y={42} width={12} height={195} rx={3} fill="#475569" stroke="#64748b" strokeWidth={1.5}/>
+      <ST x={336} y={34} textAnchor="middle" fill="#94a3b8" fontSize={8}>FENCE</ST>
+      {Array.from({length:6},(_,si)=>{const y=55+si*22;const col=si%2===0?'#ef4444':'#22c55e';return(<Line key={si} x1={342} y1={y} x2={W-8} y2={y} stroke={col} strokeWidth={2}/>);})}
+      <Line x1={308} y1={98} x2={340} y2={60} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="3,2"/>
+      <Line x1={266} y1={116} x2={340} y2={82} stroke="#22c55e" strokeWidth={1.5} strokeDasharray="3,2"/>
+      <EarthSpikes x={16} y={182}/>
+      <Line x1={74} y1={141} x2={30} y2={182} stroke="#22c55e" strokeWidth={2}/>
+      <Rect x={6} y={228} width={100} height={26} rx={4} fill="#0d2d15" stroke="#22c55e" strokeWidth={1}/>
+      <ST x={56} y={241} textAnchor="middle" fill="#22c55e" fontSize={7}>3 SPIKES MIN</ST>
+      <ST x={56} y={250} textAnchor="middle" fill="#22c55e" fontSize={7}>1.2m • 3m APART</ST>
+      <ST x={W/2} y={H-4} textAnchor="middle" fill="#475569" fontSize={7}>SANS 10222-3 — COC required</ST>
+    </Svg>);
+  }
+  if(id==='multizone'){
+    return(<Svg width={W} height={H}>
+      <Rect width={W} height={H} fill="#080e14" rx={8}/>
+      <Rect x={8} y={100} width={72} height={75} rx={5} fill="#1a2332" stroke="#f59e0b" strokeWidth={2.5}/>
+      <ST x={44} y={120} textAnchor="middle" fill="#f59e0b" fontSize={8} fontWeight="bold">ENERGIZER</ST>
+      <Rect x={14} y={126} width={60} height={12} rx={2} fill="#111827" stroke="#f59e0b" strokeWidth={1}/>
+      <ST x={44} y={136} textAnchor="middle" fill="#f59e0b" fontSize={7}>DRUID LCD</ST>
+      <Rect x={14} y={144} width={28} height={14} rx={2} fill="#7f1d1d" stroke="#ef4444" strokeWidth={1}/>
+      <ST x={28} y={155} textAnchor="middle" fill="#ef4444" fontSize={6.5}>Z1</ST>
+      <Rect x={46} y={144} width={28} height={14} rx={2} fill="#1e3a5f" stroke="#60a5fa" strokeWidth={1}/>
+      <ST x={60} y={155} textAnchor="middle" fill="#60a5fa" fontSize={6.5}>Z2</ST>
+      <Rect x={100} y={88} width={68} height={100} rx={5} fill="#111827" stroke="#60a5fa" strokeWidth={2}/>
+      <ST x={134} y={108} textAnchor="middle" fill="#60a5fa" fontSize={8} fontWeight="bold">SMART I/O</ST>
+      <ST x={134} y={120} textAnchor="middle" fill="#60a5fa" fontSize={8}>ZONE CARD</ST>
+      <Line x1={80} y1={150} x2={100} y2={138} stroke="#f59e0b" strokeWidth={2}/>
+      <Circle cx={168} cy={130} r={5} fill="#ef4444"/><ST x={178} y={134} fill="#ef4444" fontSize={7}>Z1 HT</ST>
+      <Circle cx={168} cy={145} r={5} fill="#22c55e"/><ST x={178} y={149} fill="#22c55e" fontSize={7}>Z1 Earth</ST>
+      <Circle cx={168} cy={160} r={5} fill="#60a5fa"/><ST x={178} y={164} fill="#60a5fa" fontSize={7}>Z2 HT</ST>
+      <Circle cx={168} cy={175} r={5} fill="#a78bfa"/><ST x={178} y={179} fill="#a78bfa" fontSize={7}>Z2 Earth</ST>
+      <ST x={W/2+40} y={16} textAnchor="middle" fill="#ef4444" fontSize={9} fontWeight="bold">ZONE 1 — Front</ST>
+      {Array.from({length:6},(_,si)=>{const y=22+si*16;const col=si%2===0?'#ef4444':'#22c55e';return(<Line key={si} x1={210} y1={y} x2={W-8} y2={y} stroke={col} strokeWidth={2}/>);})}
+      {[260,330,390].map((x,i)=><Rect key={i} x={x-4} y={15} width={8} height={80} rx={2} fill="#475569" opacity={0.8}/>)}
+      <Line x1={173} y1={130} x2={210} y2={38} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <Line x1={173} y1={145} x2={210} y2={54} stroke="#22c55e" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <ST x={W/2+40} y={116} textAnchor="middle" fill="#60a5fa" fontSize={9} fontWeight="bold">ZONE 2 — Rear</ST>
+      {Array.from({length:6},(_,si)=>{const y=122+si*16;const col=si%2===0?'#60a5fa':'#a78bfa';return(<Line key={si} x1={210} y1={y} x2={W-8} y2={y} stroke={col} strokeWidth={2}/>);})}
+      {[260,330,390].map((x,i)=><Rect key={i} x={x-4} y={115} width={8} height={80} rx={2} fill="#475569" opacity={0.8}/>)}
+      <Line x1={173} y1={160} x2={210} y2={138} stroke="#60a5fa" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <Line x1={173} y1={175} x2={210} y2={154} stroke="#a78bfa" strokeWidth={1.5} strokeDasharray="4,3"/>
+      <ST x={W/2} y={H-6} textAnchor="middle" fill="#64748b" fontSize={7}>Independent alarm per zone — identifies exact breach</ST>
+    </Svg>);
+  }
+  return null;
+}
+
 const LEGENDS:Record<string,string[][]>={
   serpentine:[['#ef4444','HT Live Wire'],['#22c55e','Earth Wire'],['#475569','Fence Post'],['#f59e0b','Energizer']],
   gate_series:[['#ef4444','HT Live'],['#22c55e','Earth'],['#a78bfa','Gate Post/Contact'],['#94a3b8','Conduit']],
@@ -189,11 +382,8 @@ const LEGENDS:Record<string,string[][]>={
 
 export default function DiagramsScreen(){
   const[sel,setSel]=useState('serpentine');
-  const{width}=useWindowDimensions();
   const diag=DIAGRAMS.find(d=>d.id===sel)!;
-  const svg=getSvg(sel);
   const legend=LEGENDS[sel]||[];
-  const source={html:`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a0f16;padding:8px;}svg{width:100%;height:auto;display:block;}</style></head><body>${svg}</body></html>`};
   return(
     <View style={s.root}>
       <View style={s.header}>
@@ -211,7 +401,7 @@ export default function DiagramsScreen(){
       <ScrollView style={s.body} contentContainerStyle={{padding:12,paddingBottom:40}}>
         <View style={s.diagCard}>
           <Text style={s.diagTitle}>{diag.icon}  {diag.title}</Text>
-          <RenderHtml contentWidth={width-24} source={source} baseStyle={{backgroundColor:'#0a0f16'}}/>
+          <SvgDiagram id={sel}/>
           <View style={s.legend}>
             {legend.map(([col,lbl])=>(
               <View key={lbl} style={s.legendItem}>
