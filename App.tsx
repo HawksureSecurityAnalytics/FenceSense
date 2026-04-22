@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, Platform, Statu
 import { FenceProject } from './src/types';
 import { createDemoProject, loadProject } from './src/storage/projects';
 import DesignScreen from './src/screens/DesignScreen';
+import DiagramsScreen from './src/screens/DiagramsScreen';
 import DrawScreen from './src/screens/DrawScreen';
 import DiagnosticsScreen from './src/screens/DiagnosticsScreen';
 import ProjectsScreen from './src/screens/ProjectsScreen';
@@ -47,7 +48,7 @@ export default function App() {
       <View style={styles.root}>
         <View style={styles.content}>
           {tab === 'design' && (
-            <DesignScreen project={project} onProjectUpdate={handleProjectUpdate}/>
+            <DiagramsScreen/>
           )}
           {tab === 'draw' && <DrawScreen/>}
           {tab === 'diagnostics' && <DiagnosticsScreen/>}
