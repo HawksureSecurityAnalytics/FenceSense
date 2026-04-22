@@ -180,8 +180,6 @@ ${[280,350,420].map(x=>`<rect x="${x-4}" y="214" width="8" height="75" rx="2" fi
 
 const W=Dimensions.get('window').width-24;
 
-const W=Dimensions.get('window').width-24;
-
 function Posts({xs,col='#475569',h=180,y0=50}:{xs:number[],col?:string,h?:number,y0?:number}){
   return(<G>{xs.map((x,i)=><Rect key={i} x={x-5} y={y0} width={10} height={h} rx={3} fill={col} opacity={0.9}/>)}</G>);
 }
