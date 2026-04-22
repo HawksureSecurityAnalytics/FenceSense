@@ -1,485 +1,199 @@
 import React,{useState}from 'react';
-import{View,Text,TouchableOpacity,ScrollView,StyleSheet,Dimensions}from 'react-native';
-import{WebView}from 'react-native-webview';
-
-const SW=Dimensions.get('window').width;
+import{View,Text,TouchableOpacity,ScrollView,StyleSheet,Dimensions,useWindowDimensions}from 'react-native';
+import RenderHtml from 'react-native-render-html';
 
 const C={bg:'#0d1219',panel:'#111827',border:'#1e293b',energizer:'#f59e0b',text:'#e2e8f0',muted:'#64748b',card:'#1a2332'};
 
 const DIAGRAMS=[
-  {id:'serpentine',title:'Serpentine Wiring',icon:'〰️'},
-  {id:'gate_series',title:'Gate Series Contact',icon:'🚪'},
-  {id:'gate_bypass',title:'Gate Bypass Loop',icon:'🔁'},
-  {id:'corner',title:'Corner Post',icon:'📐'},
-  {id:'energizer',title:'Energizer & Earthing',icon:'⚡'},
-  {id:'multizone',title:'Two-Zone Fence',icon:'🔀'},
+  {id:'serpentine',title:'Serpentine Wiring',icon:'〰️',desc:'Standard security fence. HT (live) and Earth strands alternate. Bridges at END-L connect HT pairs. Bridges at END-R connect Earth pairs forming a continuous serpentine loop. Intruder bridging HT to Earth triggers alarm.'},
+  {id:'gate_series',title:'Gate Series Contact',icon:'🚪',desc:'HT wires continue under the gate in underground conduit. Series gate contact breaks the circuit when gate opens — triggering alarm. Gate MUST be closed for fence to function. Contact wire max 100m from energizer.'},
+  {id:'gate_bypass',title:'Gate Bypass Loop',icon:'🔁',desc:'Bypass wires loop each strand over the gate opening between gate posts. Fence stays fully active even when gate is open. Optional gate contact can alert when gate opens without disabling fence.'},
+  {id:'corner',title:'Corner Post Wiring',icon:'📐',desc:'At 90° corners all strands turn using bridge clips. HT bridges to HT, Earth bridges to Earth. Two stay braces support the corner post — one per direction. Use stay lugs and clamps, never weld.'},
+  {id:'energizer',title:'Energizer & Earthing',icon:'⚡',desc:'Energizer mounted indoors in ventilated area. HT live and earth return in SEPARATE conduits. Lightning diverter at fence entry. Minimum 3 earth spikes at energizer: 1.2m deep, 3m apart. Additional spikes every 30m along fence. Per SANS 10222-3.'},
+  {id:'multizone',title:'Two-Zone Fence',icon:'🔀',desc:'Single energizer with Smart I/O zone card drives two independent zones. Each zone monitored separately — alarm identifies exact breach location. Critical for large or L-shaped properties.'},
 ];
 
-const makeHtml=(id:string)=>`<!DOCTYPE html>
-<html>
-<head>
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<style>
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:#0a0f16;font-family:'Courier New',monospace;color:#e2e8f0;padding:12px;}
-svg{width:100%;height:auto;display:block;}
-.title{color:#f59e0b;font-size:13px;font-weight:bold;letter-spacing:2px;margin-bottom:10px;text-transform:uppercase;}
-.desc{color:#94a3b8;font-size:11px;line-height:1.6;margin-top:10px;padding:10px;background:#111827;border-radius:6px;border-left:3px solid #f59e0b;}
-.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
-.leg{display:flex;align-items:center;gap:5px;font-size:10px;color:#94a3b8;}
-.dot{width:10px;height:10px;border-radius:50%;}
-</style>
-</head>
-<body>
-${getDiagram(id)}
-</body>
-</html>`;
+const getSvg=(id:string):string=>{
+  const svgs:Record<string,string>={
+    serpentine:`<svg viewBox="0 0 500 270" xmlns="http://www.w3.org/2000/svg">
+<rect width="500" height="270" fill="#0a0f16" rx="8"/>
+<rect x="8" y="75" width="58" height="120" rx="6" fill="#111827" stroke="#f59e0b" stroke-width="2"/>
+<text x="37" y="98" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">ENERGIZER</text>
+<circle cx="37" cy="120" r="10" fill="#1a2332" stroke="#ef4444" stroke-width="2"/><text x="37" y="124" text-anchor="middle" fill="#ef4444" font-size="7">HT</text>
+<circle cx="37" cy="148" r="10" fill="#1a2332" stroke="#22c55e" stroke-width="2"/><text x="37" y="152" text-anchor="middle" fill="#22c55e" font-size="7">E</text>
+${[100,185,270,355,440].map((x,i)=>`<rect x="${x-5}" y="52" width="10" height="180" rx="3" fill="#475569" stroke="#64748b" stroke-width="1"/><text x="${x}" y="43" text-anchor="middle" fill="#94a3b8" font-size="9">${i===0?'END-L':i===4?'END-R':'P'+i}</text>`).join('')}
+${[0,1,2,3,4,5,6,7].map(si=>{const y=62+si*18;const col=si%2===0?'#ef4444':'#22c55e';return`<line x1="66" y1="${y}" x2="445" y2="${y}" stroke="${col}" stroke-width="2.5"/><text x="460" y="${y+4}" fill="${col}" font-size="8">${si%2===0?'HT':'E'}${Math.floor(si/2)+1}</text>`;}).join('')}
+<path d="M95,62 Q78,71 78,80 Q78,89 95,98" stroke="#ef4444" stroke-width="2.5" fill="none"/>
+<path d="M95,98 Q78,107 78,116 Q78,125 95,134" stroke="#ef4444" stroke-width="2.5" fill="none"/>
+<path d="M95,134 Q78,143 78,152 Q78,161 95,170" stroke="#ef4444" stroke-width="2.5" fill="none"/>
+<path d="M445,80 Q462,89 462,98 Q462,107 445,116" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+<path d="M445,116 Q462,125 462,134 Q462,143 445,152" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+<path d="M445,152 Q462,161 462,170 Q462,179 445,188" stroke="#22c55e" stroke-width="2.5" fill="none"/>
+<text x="72" y="48" text-anchor="middle" fill="#ef4444" font-size="7" transform="rotate(-90,72,48)">HT BRIDGES</text>
+<text x="468" y="160" text-anchor="middle" fill="#22c55e" font-size="7" transform="rotate(90,468,160)">EARTH BRIDGES</text>
+${[20,33,46].map(x=>`<line x1="${x}" y1="200" x2="${x}" y2="228" stroke="#22c55e" stroke-width="2.5"/><line x1="${x-6}" y1="228" x2="${x+6}" y2="228" stroke="#22c55e" stroke-width="2"/><line x1="${x-3}" y1="234" x2="${x+3}" y2="234" stroke="#22c55e" stroke-width="1.5"/>`).join('')}
+<text x="33" y="248" text-anchor="middle" fill="#22c55e" font-size="8">3x EARTH SPIKES (1.2m deep)</text>
+<line x1="66" y1="120" x2="93" y2="62" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3"/>
+<line x1="66" y1="148" x2="93" y2="80" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,3"/>
+</svg>`,
 
-function getDiagram(id:string):string{
-  switch(id){
-    case 'serpentine': return serpentineHtml();
-    case 'gate_series': return gateSeriesHtml();
-    case 'gate_bypass': return gateBypassHtml();
-    case 'corner': return cornerHtml();
-    case 'energizer': return energizerHtml();
-    case 'multizone': return multizoneHtml();
-    default: return '';
-  }
-}
+    gate_series:`<svg viewBox="0 0 500 280" xmlns="http://www.w3.org/2000/svg">
+<rect width="500" height="280" fill="#0a0f16" rx="8"/>
+${[60,168,308,440].map((x,i)=>`<rect x="${x-5}" y="45" width="10" height="185" rx="3" fill="${i===1||i===2?'#6d28d9':'#475569'}" stroke="${i===1||i===2?'#a78bfa':'#64748b'}" stroke-width="1.5"/><text x="${x}" y="36" text-anchor="middle" fill="${i===1||i===2?'#a78bfa':'#94a3b8'}" font-size="9">${i===0?'END-L':i===1?'GATE-L':i===2?'GATE-R':'END-R'}</text>`).join('')}
+<rect x="173" y="45" width="130" height="185" fill="#1a0a2e" opacity="0.5"/>
+<text x="238" y="145" text-anchor="middle" fill="#6d28d9" font-size="9" font-style="italic">GATE OPENING</text>
+${[0,1,2,3,4,5].map(si=>{const y=60+si*24;const col=si%2===0?'#ef4444':'#22c55e';return`<line x1="65" y1="${y}" x2="163" y2="${y}" stroke="${col}" stroke-width="2.5"/><line x1="313" y1="${y}" x2="445" y2="${y}" stroke="${col}" stroke-width="2.5"/><circle cx="163" cy="${y}" r="4" fill="${col}"/><circle cx="313" cy="${y}" r="4" fill="${col}"/>`;}).join('')}
+<rect x="173" y="242" width="130" height="12" rx="3" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
+<text x="238" y="252" text-anchor="middle" fill="#94a3b8" font-size="7.5">HT CABLE IN CONDUIT (underground)</text>
+${[0,2,4].map(si=>{const y=60+si*24;return`<line x1="168" y1="${y}" x2="168" y2="242" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/><line x1="308" y1="${y}" x2="308" y2="242" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>`;}).join('')}
+<rect x="205" y="95" width="66" height="52" rx="6" fill="#1a0a2e" stroke="#a78bfa" stroke-width="2"/>
+<text x="238" y="114" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="bold">GATE</text>
+<text x="238" y="127" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="bold">CONTACT</text>
+<rect x="193" y="158" width="90" height="20" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+<text x="238" y="172" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="bold">OPEN = ALARM</text>
+<path d="M55,60 Q40,72 40,84 Q40,96 55,108" stroke="#ef4444" stroke-width="2" fill="none"/>
+<path d="M55,108 Q40,120 40,132 Q40,144 55,156" stroke="#ef4444" stroke-width="2" fill="none"/>
+<path d="M445,84 Q460,96 460,108 Q460,120 445,132" stroke="#22c55e" stroke-width="2" fill="none"/>
+<path d="M445,132 Q460,144 460,156 Q460,168 445,180" stroke="#22c55e" stroke-width="2" fill="none"/>
+<text x="250" y="270" text-anchor="middle" fill="#64748b" font-size="7.5">Contact wire must NOT run parallel to HT cable</text>
+</svg>`,
 
-function serpentineHtml():string{return `
-<div class="title">〰 Serpentine Wiring — Standard Security Fence</div>
-<svg viewBox="0 0 500 280" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <marker id="arr" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
-      <path d="M0,0 L6,3 L0,6 Z" fill="#f59e0b"/>
-    </marker>
-  </defs>
-  <!-- Background grid -->
-  <rect width="500" height="280" fill="#0a0f16" rx="8"/>
-  <line x1="0" y1="240" x2="500" y2="240" stroke="#1e293b" stroke-width="1"/>
+    gate_bypass:`<svg viewBox="0 0 500 270" xmlns="http://www.w3.org/2000/svg">
+<rect width="500" height="270" fill="#0a0f16" rx="8"/>
+${[60,163,318,440].map((x,i)=>`<rect x="${x-5}" y="55" width="10" height="175" rx="3" fill="${i===1||i===2?'#6d28d9':'#475569'}" stroke="${i===1||i===2?'#a78bfa':'#64748b'}" stroke-width="1.5"/><text x="${x}" y="45" text-anchor="middle" fill="${i===1||i===2?'#a78bfa':'#94a3b8'}" font-size="9">${i===0?'END-L':i===1?'GATE-L':i===2?'GATE-R':'END-R'}</text>`).join('')}
+<rect x="168" y="55" width="145" height="175" fill="#0a1a0a" opacity="0.5"/>
+<text x="240" y="155" text-anchor="middle" fill="#1a4a1a" font-size="10">GATE OPENING</text>
+${[0,1,2,3,4,5].map(si=>{const y=68+si*24;const col=si%2===0?'#ef4444':'#22c55e';const lift=28+si*5;return`<line x1="65" y1="${y}" x2="158" y2="${y}" stroke="${col}" stroke-width="2.5"/><line x1="323" y1="${y}" x2="445" y2="${y}" stroke="${col}" stroke-width="2.5"/><path d="M158,${y} Q240,${y-lift} 323,${y}" stroke="${col}" stroke-width="2" fill="none" stroke-dasharray="5,3"/>`;}).join('')}
+<rect x="178" y="18" width="124" height="16" rx="4" fill="#0a1a0a" stroke="#22c55e" stroke-width="1"/>
+<text x="240" y="30" text-anchor="middle" fill="#22c55e" font-size="8">BYPASS LOOPS (over gate)</text>
+<rect x="205" y="195" width="70" height="24" rx="5" fill="#111827" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,2"/>
+<text x="240" y="206" text-anchor="middle" fill="#a78bfa" font-size="7.5">OPTIONAL</text>
+<text x="240" y="216" text-anchor="middle" fill="#a78bfa" font-size="7.5">Gate Contact</text>
+<path d="M55,68 Q40,80 40,92 Q40,104 55,116" stroke="#ef4444" stroke-width="2" fill="none"/>
+<path d="M55,116 Q40,128 40,140 Q40,152 55,164" stroke="#ef4444" stroke-width="2" fill="none"/>
+<path d="M445,92 Q460,104 460,116 Q460,128 445,140" stroke="#22c55e" stroke-width="2" fill="none"/>
+<path d="M445,140 Q460,152 460,164 Q460,176 445,188" stroke="#22c55e" stroke-width="2" fill="none"/>
+<text x="250" y="260" text-anchor="middle" fill="#64748b" font-size="7.5">Fence remains active and alarmed even when gate is open</text>
+</svg>`,
 
-  <!-- Energizer unit -->
-  <rect x="8" y="80" width="58" height="120" rx="6" fill="#111827" stroke="#f59e0b" stroke-width="2"/>
-  <rect x="14" y="86" width="46" height="32" rx="3" fill="#1a2332" stroke="#f59e0b" stroke-width="1"/>
-  <text x="37" y="106" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="bold">ENERGIZER</text>
-  <circle cx="37" cy="135" r="12" fill="#1a2332" stroke="#ef4444" stroke-width="2"/>
-  <text x="37" y="139" text-anchor="middle" fill="#ef4444" font-size="7">HT</text>
-  <circle cx="37" cy="165" r="12" fill="#1a2332" stroke="#22c55e" stroke-width="2"/>
-  <text x="37" y="169" text-anchor="middle" fill="#22c55e" font-size="7">EARTH</text>
+    corner:`<svg viewBox="0 0 460 300" xmlns="http://www.w3.org/2000/svg">
+<rect width="460" height="300" fill="#0a0f16" rx="8"/>
+<rect x="200" y="105" width="18" height="18" rx="3" fill="#64748b" stroke="#94a3b8" stroke-width="2"/>
+<text x="209" y="96" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="bold">CORNER POST</text>
+<line x1="209" y1="115" x2="125" y2="195" stroke="#475569" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+<text x="130" y="210" fill="#64748b" font-size="8">STAY BRACE</text>
+<line x1="209" y1="115" x2="295" y2="195" stroke="#475569" stroke-width="5" stroke-linecap="round" opacity="0.7"/>
+<text x="280" y="210" fill="#64748b" font-size="8">STAY BRACE</text>
+${[0,1,2,3,4,5].map(si=>{const y=62+si*22;const col=si%2===0?'#ef4444':'#22c55e';return`<line x1="18" y1="${y}" x2="200" y2="${y}" stroke="${col}" stroke-width="2.5"/><circle cx="18" cy="${y}" r="3" fill="${col}"/>`;}).join('')}
+${[0,1,2,3,4,5].map(si=>{const x=242+si*22;const col=si%2===0?'#ef4444':'#22c55e';return`<line x1="${x}" y1="123" x2="${x}" y2="285" stroke="${col}" stroke-width="2.5"/><circle cx="${x}" cy="285" r="3" fill="${col}"/>`;}).join('')}
+${[0,1,2,3,4,5].map(si=>{const y=62+si*22;const x=242+si*22;const col=si%2===0?'#ef4444':'#22c55e';return`<path d="M200,${y} Q${x},${y} ${x},123" stroke="${col}" stroke-width="2" fill="none" stroke-dasharray="4,2"/>`;}).join('')}
+<text x="100" y="42" text-anchor="middle" fill="#94a3b8" font-size="9">FENCE SECTION A →</text>
+<text x="370" y="200" text-anchor="middle" fill="#94a3b8" font-size="9" transform="rotate(90,370,200)">↓ FENCE SECTION B</text>
+<rect x="218" y="60" width="36" height="14" rx="3" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+<text x="236" y="70" text-anchor="middle" fill="#ef4444" font-size="7">HT → HT</text>
+<rect x="218" y="78" width="42" height="14" rx="3" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+<text x="239" y="88" text-anchor="middle" fill="#22c55e" font-size="7">EARTH → E</text>
+<text x="230" y="292" text-anchor="middle" fill="#64748b" font-size="7.5">Stay lugs used — never weld stays to posts</text>
+</svg>`,
 
-  <!-- Posts: END-L, P1, P2, P3, END-R -->
-  ${[100,190,280,370,450].map((x,i)=>`
-  <rect x="${x-6}" y="55" width="12" height="185" rx="3" fill="#475569" stroke="#64748b" stroke-width="1"/>
-  <text x="${x}" y="46" text-anchor="middle" fill="#94a3b8" font-size="9">${i===0?'END-L':i===4?'END-R':'P'+(i)}</text>
-  <rect x="${x-8}" y="228" width="16" height="8" rx="2" fill="#374151" stroke="#475569" stroke-width="1"/>
-  `).join('')}
+    energizer:`<svg viewBox="0 0 500 320" xmlns="http://www.w3.org/2000/svg">
+<rect width="500" height="320" fill="#0a0f16" rx="8"/>
+<rect x="8" y="28" width="108" height="165" rx="6" fill="#111827" stroke="#1e293b" stroke-width="2"/>
+<text x="62" y="46" text-anchor="middle" fill="#475569" font-size="8">BUILDING</text>
+<rect x="18" y="55" width="88" height="98" rx="6" fill="#1a2332" stroke="#f59e0b" stroke-width="2.5"/>
+<text x="62" y="74" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">ENERGIZER</text>
+<rect x="26" y="80" width="72" height="16" rx="3" fill="#111827" stroke="#f59e0b" stroke-width="1"/>
+<text x="62" y="92" text-anchor="middle" fill="#f59e0b" font-size="7">LCD DISPLAY</text>
+<rect x="26" y="104" width="32" height="14" rx="2" fill="#7f1d1d" stroke="#ef4444" stroke-width="1.5"/>
+<text x="42" y="115" text-anchor="middle" fill="#ef4444" font-size="7">FENCE+</text>
+<rect x="62" y="104" width="32" height="14" rx="2" fill="#14532d" stroke="#22c55e" stroke-width="1.5"/>
+<text x="78" y="115" text-anchor="middle" fill="#22c55e" font-size="7">EARTH</text>
+<rect x="26" y="124" width="72" height="14" rx="2" fill="#1e293b" stroke="#64748b" stroke-width="1"/>
+<text x="62" y="135" text-anchor="middle" fill="#64748b" font-size="7">220V MAINS</text>
+<rect x="116" y="104" width="175" height="12" rx="3" fill="#2d1515" stroke="#ef4444" stroke-width="1.5"/>
+<text x="203" y="114" text-anchor="middle" fill="#ef4444" font-size="7.5">HT LIVE — CONDUIT A</text>
+<line x1="58" y1="111" x2="116" y2="110" stroke="#ef4444" stroke-width="2"/>
+<rect x="116" y="122" width="175" height="12" rx="3" fill="#0d2d15" stroke="#22c55e" stroke-width="1.5"/>
+<text x="203" y="132" text-anchor="middle" fill="#22c55e" font-size="7.5">EARTH RETURN — CONDUIT B</text>
+<line x1="78" y1="118" x2="116" y2="128" stroke="#22c55e" stroke-width="2"/>
+<rect x="128" y="140" width="152" height="14" rx="3" fill="#451a03" stroke="#f97316" stroke-width="1.5"/>
+<text x="204" y="151" text-anchor="middle" fill="#f97316" font-size="7.5" font-weight="bold">NEVER IN SAME CONDUIT!</text>
+<circle cx="318" cy="110" r="14" fill="#1a2332" stroke="#f59e0b" stroke-width="2"/>
+<text x="318" y="107" text-anchor="middle" fill="#f59e0b" font-size="6.5" font-weight="bold">LGHT</text>
+<text x="318" y="117" text-anchor="middle" fill="#f59e0b" font-size="6.5">DIV</text>
+<line x1="291" y1="110" x2="304" y2="110" stroke="#ef4444" stroke-width="2"/>
+<line x1="332" y1="110" x2="352" y2="110" stroke="#ef4444" stroke-width="2"/>
+<rect x="352" y="55" width="12" height="210" rx="3" fill="#475569" stroke="#64748b" stroke-width="1.5"/>
+<text x="358" y="46" text-anchor="middle" fill="#94a3b8" font-size="9">FENCE</text>
+${[0,1,2,3,4,5].map(si=>{const y=68+si*22;const col=si%2===0?'#ef4444':'#22c55e';return`<line x1="364" y1="${y}" x2="490" y2="${y}" stroke="${col}" stroke-width="2"/>`;}).join('')}
+<line x1="332" y1="110" x2="362" y2="75" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2"/>
+<line x1="291" y1="128" x2="362" y2="97" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3,2"/>
+${[22,46,70].map((x,i)=>`<line x1="${x}" y1="195" x2="${x}" y2="232" stroke="#22c55e" stroke-width="3"/><line x1="${x-7}" y1="232" x2="${x+7}" y2="232" stroke="#22c55e" stroke-width="2.5"/><line x1="${x-4}" y1="239" x2="${x+4}" y2="239" stroke="#22c55e" stroke-width="2"/><line x1="${x-2}" y1="245" x2="${x+2}" y2="245" stroke="#22c55e" stroke-width="1.5"/><text x="${x}" y="258" text-anchor="middle" fill="#22c55e" font-size="7">S${i+1}</text>`).join('')}
+<line x1="78" y1="153" x2="46" y2="195" stroke="#22c55e" stroke-width="2"/>
+<rect x="8" y="264" width="100" height="30" rx="4" fill="#0d2d15" stroke="#22c55e" stroke-width="1"/>
+<text x="58" y="277" text-anchor="middle" fill="#22c55e" font-size="7">3 SPIKES MINIMUM</text>
+<text x="58" y="288" text-anchor="middle" fill="#22c55e" font-size="7">1.2m DEEP • 3m APART</text>
+${[420,460].map(x=>`<line x1="${x}" y1="272" x2="${x}" y2="295" stroke="#22c55e" stroke-width="2"/><line x1="${x-5}" y1="295" x2="${x+5}" y2="295" stroke="#22c55e" stroke-width="1.5"/><text x="${x}" y="308" text-anchor="middle" fill="#22c55e" font-size="7">30m</text>`).join('')}
+<text x="440" y="265" text-anchor="middle" fill="#64748b" font-size="7">Spikes every 30m along fence</text>
+<text x="250" y="315" text-anchor="middle" fill="#475569" font-size="7">SANS 10222-3 — COC required for all installations</text>
+</svg>`,
 
-  <!-- 8 strands: HT=red(0,2,4,6) Earth=green(1,3,5,7) -->
-  ${[0,1,2,3,4,5,6,7].map(si=>{
-    const y=68+si*20;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    const lbl=si%2===0?`HT${Math.floor(si/2)+1}`:`E${Math.floor(si/2)+1}`;
-    return `
-  <line x1="66" y1="${y}" x2="456" y2="${y}" stroke="${col}" stroke-width="2.5"/>
-  <text x="470" y="${y+4}" fill="${col}" font-size="8">${lbl}</text>
-  <circle cx="100" cy="${y}" r="3" fill="${col}"/>
-  <circle cx="450" cy="${y}" r="3" fill="${col}"/>`;
-  }).join('')}
+    multizone:`<svg viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg">
+<rect width="500" height="300" fill="#0a0f16" rx="8"/>
+<rect x="10" y="110" width="78" height="80" rx="6" fill="#1a2332" stroke="#f59e0b" stroke-width="2.5"/>
+<text x="49" y="132" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">ENERGIZER</text>
+<rect x="18" y="138" width="62" height="12" rx="2" fill="#111827" stroke="#f59e0b" stroke-width="1"/>
+<text x="49" y="148" text-anchor="middle" fill="#f59e0b" font-size="7">DRUID LCD</text>
+<rect x="18" y="156" width="28" height="12" rx="2" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+<text x="32" y="165" text-anchor="middle" fill="#ef4444" font-size="6.5">Z1 OUT</text>
+<rect x="50" y="156" width="28" height="12" rx="2" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+<text x="64" y="165" text-anchor="middle" fill="#60a5fa" font-size="6.5">Z2 OUT</text>
+<rect x="108" y="100" width="72" height="100" rx="6" fill="#111827" stroke="#60a5fa" stroke-width="2"/>
+<text x="144" y="120" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="bold">SMART I/O</text>
+<text x="144" y="133" text-anchor="middle" fill="#60a5fa" font-size="8">ZONE CARD</text>
+<line x1="88" y1="162" x2="108" y2="150" stroke="#f59e0b" stroke-width="2"/>
+<circle cx="180" cy="138" r="5" fill="#ef4444"/><text x="190" y="142" fill="#ef4444" font-size="7">Z1 HT+</text>
+<circle cx="180" cy="153" r="5" fill="#22c55e"/><text x="190" y="157" fill="#22c55e" font-size="7">Z1 EARTH</text>
+<circle cx="180" cy="168" r="5" fill="#60a5fa"/><text x="190" y="172" fill="#60a5fa" font-size="7">Z2 HT+</text>
+<circle cx="180" cy="183" r="5" fill="#a78bfa"/><text x="190" y="187" fill="#a78bfa" font-size="7">Z2 EARTH</text>
+<rect x="6" y="14" width="488" height="10" rx="2" fill="#7f1d1d" opacity="0.3"/>
+<text x="250" y="12" text-anchor="middle" fill="#ef4444" font-size="9" font-weight="bold">ZONE 1 — Front Perimeter</text>
+${[22,34,46,58,70,82].map((y,si)=>`<line x1="220" y1="${y}" x2="490" y2="${y}" stroke="${si%2===0?'#ef4444':'#22c55e'}" stroke-width="2"/>`).join('')}
+${[280,350,420].map(x=>`<rect x="${x-4}" y="14" width="8" height="75" rx="2" fill="#475569" opacity="0.8"/>`).join('')}
+<line x1="185" y1="138" x2="220" y2="50" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3"/>
+<line x1="185" y1="153" x2="220" y2="62" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,3"/>
+<rect x="220" y="14" width="65" height="13" rx="3" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
+<text x="252" y="24" text-anchor="middle" fill="#ef4444" font-size="7">ZONE 1 ALARM</text>
+<rect x="6" y="210" width="488" height="10" rx="2" fill="#1e3a5f" opacity="0.3"/>
+<text x="250" y="208" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="bold">ZONE 2 — Rear / Side Perimeter</text>
+${[222,234,246,258,270,282].map((y,si)=>`<line x1="220" y1="${y}" x2="490" y2="${y}" stroke="${si%2===0?'#60a5fa':'#a78bfa'}" stroke-width="2"/>`).join('')}
+${[280,350,420].map(x=>`<rect x="${x-4}" y="214" width="8" height="75" rx="2" fill="#475569" opacity="0.8"/>`).join('')}
+<line x1="185" y1="168" x2="220" y2="246" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,3"/>
+<line x1="185" y1="183" x2="220" y2="258" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,3"/>
+<rect x="220" y="210" width="65" height="13" rx="3" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+<text x="252" y="220" text-anchor="middle" fill="#60a5fa" font-size="7">ZONE 2 ALARM</text>
+<text x="250" y="295" text-anchor="middle" fill="#64748b" font-size="7.5">Each zone independently monitored — alarm identifies exact breach location</text>
+</svg>`,
+  };
+  return svgs[id]||'';
+};
 
-  <!-- END-L bridges: connect HT pairs 0-2, 2-4, 4-6 (left side) -->
-  <path d="M94,68 Q78,78 78,88 Q78,98 94,108" stroke="#ef4444" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M94,108 Q78,118 78,128 Q78,138 94,148" stroke="#ef4444" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M94,148 Q78,158 78,168 Q78,178 94,188" stroke="#ef4444" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <text x="62" y="135" text-anchor="middle" fill="#ef4444" font-size="8" transform="rotate(-90,62,135)">HT BRIDGES</text>
-
-  <!-- END-R bridges: connect Earth pairs 1-3, 3-5, 5-7 (right side) -->
-  <path d="M456,88 Q472,98 472,108 Q472,118 456,128" stroke="#22c55e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M456,128 Q472,138 472,148 Q472,158 456,168" stroke="#22c55e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <path d="M456,168 Q472,178 472,188 Q472,198 456,208" stroke="#22c55e" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-  <text x="486" y="155" text-anchor="middle" fill="#22c55e" font-size="8" transform="rotate(90,486,155)">EARTH BRIDGES</text>
-
-  <!-- Earth spikes at energizer -->
-  ${[20,33,46].map((x,i)=>`
-  <line x1="${x}" y1="208" x2="${x}" y2="236" stroke="#22c55e" stroke-width="2.5"/>
-  <line x1="${x-6}" y1="236" x2="${x+6}" y2="236" stroke="#22c55e" stroke-width="2"/>
-  <line x1="${x-4}" y1="241" x2="${x+4}" y2="241" stroke="#22c55e" stroke-width="1.5"/>
-  <line x1="${x-2}" y1="246" x2="${x+2}" y2="246" stroke="#22c55e" stroke-width="1"/>
-  `).join('')}
-  <text x="33" y="258" text-anchor="middle" fill="#22c55e" font-size="8">3× EARTH SPIKES (1.2m)</text>
-
-  <!-- Connection lines from energizer to fence -->
-  <line x1="66" y1="135" x2="94" y2="68" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3"/>
-  <line x1="66" y1="165" x2="94" y2="88" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,3"/>
-</svg>
-<div class="legend">
-  <div class="leg"><div class="dot" style="background:#ef4444"></div>HT Live Wire</div>
-  <div class="leg"><div class="dot" style="background:#22c55e"></div>Earth Wire</div>
-  <div class="leg"><div class="dot" style="background:#475569"></div>Fence Post</div>
-  <div class="leg"><div class="dot" style="background:#f59e0b"></div>Energizer</div>
-</div>
-<div class="desc">Standard security fence wiring. HT (live) and Earth strands alternate. Bridges at END-L connect HT→HT pairs. Bridges at END-R connect Earth→Earth pairs forming a continuous serpentine loop. An intruder bridging any HT to Earth strand completes the circuit and triggers the alarm.</div>`;}
-
-function gateSeriesHtml():string{return `
-<div class="title">🚪 Gate — Series Contact Wiring</div>
-<svg viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg">
-  <rect width="500" height="300" fill="#0a0f16" rx="8"/>
-
-  <!-- Fence posts -->
-  ${[60,170,310,430].map((x,i)=>`
-  <rect x="${x-6}" y="50" width="12" height="185" rx="3" fill="${i===1||i===2?'#6d28d9':'#475569'}" stroke="${i===1||i===2?'#a78bfa':'#64748b'}" stroke-width="1.5"/>
-  <text x="${x}" y="40" text-anchor="middle" fill="${i===1||i===2?'#a78bfa':'#94a3b8'}" font-size="9">${i===0?'END-L':i===1?'GATE-L':i===2?'GATE-R':'END-R'}</text>
-  `).join('')}
-
-  <!-- Gate opening indicator -->
-  <rect x="176" y="50" width="128" height="185" fill="#1a0a2e" rx="0" opacity="0.5"/>
-  <text x="240" y="145" text-anchor="middle" fill="#6d28d9" font-size="10" font-style="italic">GATE OPENING</text>
-  <line x1="176" y1="50" x2="176" y2="235" stroke="#6d28d9" stroke-width="1" stroke-dasharray="4,3"/>
-  <line x1="308" y1="50" x2="308" y2="235" stroke="#6d28d9" stroke-width="1" stroke-dasharray="4,3"/>
-
-  <!-- Strands left and right of gate -->
-  ${[0,1,2,3,4,5].map(si=>{
-    const y=65+si*26;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    return `
-  <line x1="66" y1="${y}" x2="164" y2="${y}" stroke="${col}" stroke-width="2.5"/>
-  <line x1="316" y1="${y}" x2="436" y2="${y}" stroke="${col}" stroke-width="2.5"/>
-  <circle cx="164" cy="${y}" r="4" fill="${col}"/>
-  <circle cx="316" cy="${y}" r="4" fill="${col}"/>`;
-  }).join('')}
-
-  <!-- HT cables under gate in conduit -->
-  <rect x="176" y="248" width="132" height="14" rx="4" fill="#1e293b" stroke="#64748b" stroke-width="1.5"/>
-  <text x="242" y="259" text-anchor="middle" fill="#94a3b8" font-size="8">HT CABLE IN CONDUIT (underground)</text>
-
-  <!-- Vertical drops to conduit -->
-  ${[0,2,4].map(si=>{
-    const y=65+si*26;
-    return `
-  <line x1="170" y1="${y}" x2="170" y2="248" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>
-  <line x1="314" y1="${y}" x2="314" y2="248" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,3"/>`;
-  }).join('')}
-
-  <!-- Gate contact unit -->
-  <rect x="210" y="100" width="60" height="50" rx="6" fill="#1a0a2e" stroke="#a78bfa" stroke-width="2"/>
-  <text x="240" y="120" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="bold">GATE</text>
-  <text x="240" y="133" text-anchor="middle" fill="#a78bfa" font-size="9" font-weight="bold">CONTACT</text>
-  <circle cx="218" cy="141" r="4" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
-  <circle cx="262" cy="141" r="4" fill="none" stroke="#a78bfa" stroke-width="1.5"/>
-  <line x1="222" y1="141" x2="258" y2="141" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="3,2"/>
-
-  <!-- Alarm indicator -->
-  <rect x="195" y="165" width="90" height="22" rx="4" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-  <text x="240" y="180" text-anchor="middle" fill="#ef4444" font-size="9" font-weight="bold">⚠ OPEN = ALARM</text>
-
-  <!-- Bridges at ends -->
-  <path d="M54,65 Q40,78 40,91 Q40,104 54,117" stroke="#ef4444" stroke-width="2" fill="none"/>
-  <path d="M54,117 Q40,130 40,143 Q40,156 54,169" stroke="#ef4444" stroke-width="2" fill="none"/>
-  <path d="M436,91 Q450,104 450,117 Q450,130 436,143" stroke="#22c55e" stroke-width="2" fill="none"/>
-  <path d="M436,143 Q450,156 450,169 Q450,182 436,195" stroke="#22c55e" stroke-width="2" fill="none"/>
-
-  <text x="250" y="285" text-anchor="middle" fill="#64748b" font-size="8">Gate contact wire max 100m from energizer — run separate from HT wire</text>
-</svg>
-<div class="legend">
-  <div class="leg"><div class="dot" style="background:#ef4444"></div>HT Live</div>
-  <div class="leg"><div class="dot" style="background:#22c55e"></div>Earth</div>
-  <div class="leg"><div class="dot" style="background:#a78bfa"></div>Gate Post / Contact</div>
-  <div class="leg"><div class="dot" style="background:#94a3b8"></div>Conduit (underground)</div>
-</div>
-<div class="desc">HT wires continue under the gate in underground conduit. A series gate contact is wired into the fence circuit — when the gate opens the contact opens, breaking the circuit and triggering the alarm. The gate MUST be closed for the fence to function. Gate contact wire must not run parallel to HT cable.</div>`;}
-
-function gateBypassHtml():string{return `
-<div class="title">🔁 Gate — Bypass Loop Wiring</div>
-<svg viewBox="0 0 500 300" xmlns="http://www.w3.org/2000/svg">
-  <rect width="500" height="300" fill="#0a0f16" rx="8"/>
-
-  ${[60,165,315,440].map((x,i)=>`
-  <rect x="${x-6}" y="50" width="12" height="185" rx="3" fill="${i===1||i===2?'#6d28d9':'#475569'}" stroke="${i===1||i===2?'#a78bfa':'#64748b'}" stroke-width="1.5"/>
-  <text x="${x}" y="40" text-anchor="middle" fill="${i===1||i===2?'#a78bfa':'#94a3b8'}" font-size="9">${i===0?'END-L':i===1?'GATE-L':i===2?'GATE-R':'END-R'}</text>
-  `).join('')}
-
-  <rect x="171" y="50" width="138" height="185" fill="#0a1a0a" rx="0" opacity="0.6"/>
-  <text x="240" y="155" text-anchor="middle" fill="#22c55e" font-size="10" opacity="0.5">GATE OPENING</text>
-
-  <!-- Strands each side -->
-  ${[0,1,2,3,4,5].map(si=>{
-    const y=65+si*26;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    return `
-  <line x1="66" y1="${y}" x2="159" y2="${y}" stroke="${col}" stroke-width="2.5"/>
-  <line x1="321" y1="${y}" x2="446" y2="${y}" stroke="${col}" stroke-width="2.5"/>`;
-  }).join('')}
-
-  <!-- Bypass loops over gate (dashed arc) -->
-  ${[0,1,2,3,4,5].map(si=>{
-    const y=65+si*26;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    const lift=30+si*4;
-    return `<path d="M159,${y} Q240,${y-lift} 321,${y}" stroke="${col}" stroke-width="2" fill="none" stroke-dasharray="5,3"/>`;
-  }).join('')}
-
-  <!-- Bypass label -->
-  <rect x="185" y="12" width="110" height="18" rx="4" fill="#0a1a0a" stroke="#22c55e" stroke-width="1"/>
-  <text x="240" y="24" text-anchor="middle" fill="#22c55e" font-size="8">BYPASS LOOPS (over gate)</text>
-
-  <!-- Arrows showing direction -->
-  <text x="240" y="50" text-anchor="middle" fill="#64748b" font-size="14">↓</text>
-
-  <!-- Optional conduit below -->
-  <rect x="171" y="248" width="138" height="12" rx="3" fill="#1e293b" stroke="#475569" stroke-width="1"/>
-  <text x="240" y="258" text-anchor="middle" fill="#64748b" font-size="7">Optional HT conduit below</text>
-
-  <!-- Optional gate contact -->
-  <rect x="205" y="195" width="70" height="28" rx="5" fill="#111827" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,2"/>
-  <text x="240" y="207" text-anchor="middle" fill="#a78bfa" font-size="8">OPTIONAL</text>
-  <text x="240" y="218" text-anchor="middle" fill="#a78bfa" font-size="8">Gate Contact</text>
-
-  <!-- End bridges -->
-  <path d="M54,65 Q38,78 38,91 Q38,104 54,117" stroke="#ef4444" stroke-width="2" fill="none"/>
-  <path d="M54,117 Q38,130 38,143 Q38,156 54,169" stroke="#ef4444" stroke-width="2" fill="none"/>
-  <path d="M446,91 Q462,104 462,117 Q462,130 446,143" stroke="#22c55e" stroke-width="2" fill="none"/>
-  <path d="M446,143 Q462,156 462,169 Q462,182 446,195" stroke="#22c55e" stroke-width="2" fill="none"/>
-
-  <text x="250" y="285" text-anchor="middle" fill="#64748b" font-size="8">Fence remains active and alarmed even when gate is open</text>
-</svg>
-<div class="legend">
-  <div class="leg"><div class="dot" style="background:#ef4444"></div>HT Live</div>
-  <div class="leg"><div class="dot" style="background:#22c55e"></div>Earth</div>
-  <div class="leg"><div class="dot" style="background:#a78bfa"></div>Gate Posts</div>
-</div>
-<div class="desc">Bypass wires loop each strand over the gate opening between the two gate posts. The fence circuit remains unbroken and fully active even when the gate is open. An optional gate contact can be added to alert when the gate opens without disabling the fence. Common on driveways and high-traffic entrances.</div>`;}
-
-function cornerHtml():string{return `
-<div class="title">📐 Corner Post Wiring</div>
-<svg viewBox="0 0 500 320" xmlns="http://www.w3.org/2000/svg">
-  <rect width="500" height="320" fill="#0a0f16" rx="8"/>
-
-  <!-- Corner post (large, central) -->
-  <rect x="218" y="100" width="16" height="16" rx="3" fill="#64748b" stroke="#94a3b8" stroke-width="2"/>
-  <text x="226" y="92" text-anchor="middle" fill="#e2e8f0" font-size="10" font-weight="bold">CORNER POST</text>
-
-  <!-- Stay braces -->
-  <line x1="226" y1="108" x2="140" y2="185" stroke="#475569" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-  <text x="148" y="198" fill="#64748b" font-size="8">STAY BRACE</text>
-  <line x1="226" y1="108" x2="310" y2="185" stroke="#475569" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-  <text x="295" y="198" fill="#64748b" font-size="8">STAY BRACE</text>
-
-  <!-- Horizontal fence (coming from left) -->
-  ${[0,1,2,3,4,5].map(si=>{
-    const y=68+si*22;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    return `<line x1="20" y1="${y}" x2="218" y2="${y}" stroke="${col}" stroke-width="2.5"/>
-    <circle cx="20" cy="${y}" r="3" fill="${col}"/>`;
-  }).join('')}
-
-  <!-- Vertical fence (going down) -->
-  ${[0,1,2,3,4,5].map(si=>{
-    const x=258+si*22;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    return `<line x1="${x}" y1="116" x2="${x}" y2="295" stroke="${col}" stroke-width="2.5"/>
-    <circle cx="${x}" cy="295" r="3" fill="${col}"/>`;
-  }).join('')}
-
-  <!-- Corner bridges (curved) connecting horizontal to vertical -->
-  ${[0,1,2,3,4,5].map(si=>{
-    const hy=68+si*22;
-    const vx=258+si*22;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    return `<path d="M218,${hy} Q${vx},${hy} ${vx},116" stroke="${col}" stroke-width="2" fill="none" stroke-dasharray="4,2"/>`;
-  }).join('')}
-
-  <!-- Labels -->
-  <text x="110" y="55" text-anchor="middle" fill="#94a3b8" font-size="9">← FENCE SECTION A</text>
-  <text x="370" y="205" text-anchor="middle" fill="#94a3b8" font-size="9" transform="rotate(90,370,205)">FENCE SECTION B ↓</text>
-
-  <!-- Insulator symbols on posts -->
-  ${[60,120,180].map(x=>`
-  <rect x="${x-4}" y="100" width="8" height="8" rx="1" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
-  `).join('')}
-
-  <!-- Bridge labels -->
-  <rect x="228" y="68" width="28" height="14" rx="3" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-  <text x="242" y="78" text-anchor="middle" fill="#ef4444" font-size="7">HT→HT</text>
-  <rect x="228" y="86" width="32" height="14" rx="3" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
-  <text x="244" y="96" text-anchor="middle" fill="#22c55e" font-size="7">EARTH→E</text>
-
-  <text x="250" y="308" text-anchor="middle" fill="#64748b" font-size="8">Stay lugs used — never weld stays to posts</text>
-</svg>
-<div class="legend">
-  <div class="leg"><div class="dot" style="background:#ef4444"></div>HT Live</div>
-  <div class="leg"><div class="dot" style="background:#22c55e"></div>Earth</div>
-  <div class="leg"><div class="dot" style="background:#3b82f6"></div>Insulator</div>
-  <div class="leg"><div class="dot" style="background:#475569"></div>Stay Brace</div>
-</div>
-<div class="desc">At 90° corners all strands turn using bridge clips. HT strands bridge to HT, Earth strands bridge to Earth. Two stay braces support the corner post — one per direction of pull. Use stay lugs and clamps — never weld stays. Tension springs fitted at corner posts.</div>`;}
-
-function energizerHtml():string{return `
-<div class="title">⚡ Energizer Installation & Earthing Layout</div>
-<svg viewBox="0 0 500 340" xmlns="http://www.w3.org/2000/svg">
-  <rect width="500" height="340" fill="#0a0f16" rx="8"/>
-
-  <!-- Building wall -->
-  <rect x="8" y="30" width="110" height="170" rx="6" fill="#111827" stroke="#1e293b" stroke-width="2"/>
-  <text x="63" y="48" text-anchor="middle" fill="#475569" font-size="9">BUILDING / WALL</text>
-  <line x1="8" y1="52" x2="118" y2="52" stroke="#1e293b" stroke-width="1"/>
-
-  <!-- Energizer box -->
-  <rect x="20" y="60" width="86" height="100" rx="6" fill="#1a2332" stroke="#f59e0b" stroke-width="2.5"/>
-  <text x="63" y="80" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">ENERGIZER</text>
-  <rect x="28" y="85" width="70" height="18" rx="3" fill="#111827" stroke="#f59e0b" stroke-width="1"/>
-  <text x="63" y="98" text-anchor="middle" fill="#f59e0b" font-size="7">LCD DISPLAY</text>
-  <!-- Terminals -->
-  <rect x="28" y="115" width="28" height="16" rx="2" fill="#7f1d1d" stroke="#ef4444" stroke-width="1.5"/>
-  <text x="42" y="127" text-anchor="middle" fill="#ef4444" font-size="7">FENCE+</text>
-  <rect x="60" y="115" width="28" height="16" rx="2" fill="#14532d" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="74" y="127" text-anchor="middle" fill="#22c55e" font-size="7">EARTH</text>
-  <!-- Mains input -->
-  <rect x="34" y="140" width="58" height="14" rx="2" fill="#1e293b" stroke="#64748b" stroke-width="1"/>
-  <text x="63" y="151" text-anchor="middle" fill="#64748b" font-size="7">220V MAINS INPUT</text>
-
-  <!-- Conduit A - HT Live (red) -->
-  <rect x="118" y="115" width="185" height="12" rx="4" fill="#2d1515" stroke="#ef4444" stroke-width="1.5"/>
-  <text x="210" y="125" text-anchor="middle" fill="#ef4444" font-size="8">HT LIVE — CONDUIT A</text>
-  <line x1="56" y1="123" x2="118" y2="121" stroke="#ef4444" stroke-width="2"/>
-
-  <!-- Conduit B - Earth return (green) -->
-  <rect x="118" y="140" width="185" height="12" rx="4" fill="#0d2d15" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="210" y="150" text-anchor="middle" fill="#22c55e" font-size="8">EARTH RETURN — CONDUIT B</text>
-  <line x1="88" y1="131" x2="118" y2="146" stroke="#22c55e" stroke-width="2"/>
-
-  <!-- NEVER same conduit warning -->
-  <rect x="130" y="158" width="162" height="16" rx="4" fill="#451a03" stroke="#f97316" stroke-width="1.5"/>
-  <text x="211" y="170" text-anchor="middle" fill="#f97316" font-size="8" font-weight="bold">⚠ NEVER IN SAME CONDUIT</text>
-
-  <!-- Lightning diverter -->
-  <circle cx="330" cy="121" r="14" fill="#1a2332" stroke="#f59e0b" stroke-width="2"/>
-  <text x="330" y="118" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="bold">LGHT</text>
-  <text x="330" y="128" text-anchor="middle" fill="#f59e0b" font-size="7">DIV</text>
-  <line x1="303" y1="121" x2="316" y2="121" stroke="#ef4444" stroke-width="2"/>
-  <line x1="344" y1="121" x2="360" y2="121" stroke="#ef4444" stroke-width="2"/>
-  <text x="330" y="145" text-anchor="middle" fill="#94a3b8" font-size="7">Lightning Diverter</text>
-
-  <!-- Fence post -->
-  <rect x="360" y="60" width="14" height="220" rx="3" fill="#475569" stroke="#64748b" stroke-width="1.5"/>
-  <text x="367" y="52" text-anchor="middle" fill="#94a3b8" font-size="9">FENCE</text>
-  <!-- Strands on fence -->
-  ${[0,1,2,3,4,5].map(si=>{
-    const y=75+si*22;
-    const col=si%2===0?'#ef4444':'#22c55e';
-    return `<line x1="374" y1="${y}" x2="490" y2="${y}" stroke="${col}" stroke-width="2"/>`;
-  }).join('')}
-  <line x1="344" y1="121" x2="374" y2="80" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="3,2"/>
-  <line x1="303" y1="146" x2="374" y2="97" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="3,2"/>
-
-  <!-- Earth spikes at energizer (3 minimum) -->
-  ${[25,50,75].map((x,i)=>`
-  <line x1="${x}" y1="200" x2="${x}" y2="240" stroke="#22c55e" stroke-width="3"/>
-  <line x1="${x-8}" y1="240" x2="${x+8}" y2="240" stroke="#22c55e" stroke-width="2.5"/>
-  <line x1="${x-5}" y1="248" x2="${x+5}" y2="248" stroke="#22c55e" stroke-width="2"/>
-  <line x1="${x-2}" y1="255" x2="${x+2}" y2="255" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="${x}" y="270" text-anchor="middle" fill="#22c55e" font-size="7">SPIKE ${i+1}</text>
-  `).join('')}
-  <line x1="88" y1="131" x2="50" y2="200" stroke="#22c55e" stroke-width="2"/>
-  <rect x="8" y="278" width="102" height="30" rx="4" fill="#0d2d15" stroke="#22c55e" stroke-width="1"/>
-  <text x="59" y="291" text-anchor="middle" fill="#22c55e" font-size="7">3× SPIKES MINIMUM</text>
-  <text x="59" y="302" text-anchor="middle" fill="#22c55e" font-size="7">1.2m DEEP • 3m APART</text>
-
-  <!-- Fence earth spikes (every 30m) -->
-  ${[420,460].map((x,i)=>`
-  <line x1="${x}" y1="285" x2="${x}" y2="310" stroke="#22c55e" stroke-width="2"/>
-  <line x1="${x-6}" y1="310" x2="${x+6}" y2="310" stroke="#22c55e" stroke-width="1.5"/>
-  <text x="${x}" y="322" text-anchor="middle" fill="#22c55e" font-size="7">30m</text>
-  `).join('')}
-  <text x="440" y="278" text-anchor="middle" fill="#64748b" font-size="7">Earth spikes along fence every 30m</text>
-
-  <text x="250" y="335" text-anchor="middle" fill="#64748b" font-size="7">Per SANS 10222-3 — COC required for all installations</text>
-</svg>
-<div class="legend">
-  <div class="leg"><div class="dot" style="background:#ef4444"></div>HT Live (Conduit A)</div>
-  <div class="leg"><div class="dot" style="background:#22c55e"></div>Earth Return (Conduit B)</div>
-  <div class="leg"><div class="dot" style="background:#f59e0b"></div>Energizer / Lightning Div</div>
-  <div class="leg"><div class="dot" style="background:#f97316"></div>Warning / Safety</div>
-</div>
-<div class="desc">Energizer mounted indoors in ventilated area. HT live and earth return run in SEPARATE conduits — never together. Lightning diverter fitted at fence entry point. Minimum 3 earth spikes at energizer: 1.2m deep, 3m apart. Additional earth spikes every 30m along fence. Per SANS 10222-3.</div>`;}
-
-function multizoneHtml():string{return `
-<div class="title">🔀 Two-Zone Fence — Single Energizer</div>
-<svg viewBox="0 0 500 320" xmlns="http://www.w3.org/2000/svg">
-  <rect width="500" height="320" fill="#0a0f16" rx="8"/>
-
-  <!-- Energizer -->
-  <rect x="10" y="120" width="80" height="80" rx="6" fill="#1a2332" stroke="#f59e0b" stroke-width="2.5"/>
-  <text x="50" y="145" text-anchor="middle" fill="#f59e0b" font-size="9" font-weight="bold">ENERGIZER</text>
-  <rect x="18" y="152" width="64" height="12" rx="2" fill="#111827" stroke="#f59e0b" stroke-width="1"/>
-  <text x="50" y="162" text-anchor="middle" fill="#f59e0b" font-size="7">LCD / DRUID</text>
-  <rect x="18" y="170" width="28" height="14" rx="2" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-  <text x="32" y="181" text-anchor="middle" fill="#ef4444" font-size="6.5">ZONE 1</text>
-  <rect x="50" y="170" width="28" height="14" rx="2" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
-  <text x="64" y="181" text-anchor="middle" fill="#60a5fa" font-size="6.5">ZONE 2</text>
-
-  <!-- Zone card -->
-  <rect x="110" y="110" width="70" height="100" rx="6" fill="#111827" stroke="#60a5fa" stroke-width="2"/>
-  <text x="145" y="130" text-anchor="middle" fill="#60a5fa" font-size="8" font-weight="bold">SMART I/O</text>
-  <text x="145" y="143" text-anchor="middle" fill="#60a5fa" font-size="8">ZONE CARD</text>
-  <line x1="90" y1="177" x2="110" y2="160" stroke="#f59e0b" stroke-width="2"/>
-  <!-- Zone card outputs -->
-  <circle cx="180" cy="145" r="5" fill="#ef4444" stroke="#ef4444" stroke-width="1"/>
-  <text x="188" y="149" fill="#ef4444" font-size="7">Z1+</text>
-  <circle cx="180" cy="160" r="5" fill="#22c55e" stroke="#22c55e" stroke-width="1"/>
-  <text x="188" y="164" fill="#22c55e" font-size="7">Z1 E</text>
-  <circle cx="180" cy="178" r="5" fill="#60a5fa" stroke="#60a5fa" stroke-width="1"/>
-  <text x="188" y="182" fill="#60a5fa" font-size="7">Z2+</text>
-  <circle cx="180" cy="193" r="5" fill="#a78bfa" stroke="#a78bfa" stroke-width="1"/>
-  <text x="188" y="197" fill="#a78bfa" font-size="7">Z2 E</text>
-
-  <!-- Zone 1 fence (top) -->
-  <rect x="8" y="18" width="484" height="12" rx="2" fill="#7f1d1d" opacity="0.3"/>
-  <text x="250" y="15" text-anchor="middle" fill="#ef4444" font-size="9" font-weight="bold">ZONE 1 — Front Perimeter</text>
-  ${[30,40,50,60,70,80].map((y,si)=>`
-  <line x1="210" y1="${y}" x2="490" y2="${y}" stroke="${si%2===0?'#ef4444':'#22c55e'}" stroke-width="2"/>
-  `).join('')}
-  ${[250,330,410].map(x=>`<rect x="${x-4}" y="22" width="8" height="65" rx="2" fill="#475569" opacity="0.8"/>`).join('')}
-  <line x1="186" y1="145" x2="210" y2="56" stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,3"/>
-  <line x1="186" y1="160" x2="210" y2="65" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,3"/>
-  <rect x="210" y="18" width="60" height="14" rx="3" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-  <text x="240" y="29" text-anchor="middle" fill="#ef4444" font-size="7">ZONE 1 ALARM</text>
-
-  <!-- Zone 2 fence (bottom) -->
-  <rect x="8" y="225" width="484" height="12" rx="2" fill="#1e3a5f" opacity="0.3"/>
-  <text x="250" y="222" text-anchor="middle" fill="#60a5fa" font-size="9" font-weight="bold">ZONE 2 — Rear / Side Perimeter</text>
-  ${[240,252,264,276,288,300].map((y,si)=>`
-  <line x1="210" y1="${y}" x2="490" y2="${y}" stroke="${si%2===0?'#60a5fa':'#a78bfa'}" stroke-width="2"/>
-  `).join('')}
-  ${[250,330,410].map(x=>`<rect x="${x-4}" y="233" width="8" height="75" rx="2" fill="#475569" opacity="0.8"/>`).join('')}
-  <line x1="186" y1="178" x2="210" y2="264" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,3"/>
-  <line x1="186" y1="193" x2="210" y2="276" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="4,3"/>
-  <rect x="210" y="225" width="60" height="14" rx="3" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
-  <text x="240" y="236" text-anchor="middle" fill="#60a5fa" font-size="7">ZONE 2 ALARM</text>
-
-  <!-- Alarm panel -->
-  <rect x="10" y="220" width="80" height="60" rx="6" fill="#111827" stroke="#64748b" stroke-width="1.5"/>
-  <text x="50" y="238" text-anchor="middle" fill="#94a3b8" font-size="8" font-weight="bold">ALARM</text>
-  <text x="50" y="250" text-anchor="middle" fill="#94a3b8" font-size="8">PANEL</text>
-  <rect x="18" y="256" width="28" height="10" rx="2" fill="#7f1d1d" stroke="#ef4444" stroke-width="1"/>
-  <text x="32" y="264" text-anchor="middle" fill="#ef4444" font-size="6">Z1 ⚠</text>
-  <rect x="52" y="256" width="28" height="10" rx="2" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
-  <text x="66" y="264" text-anchor="middle" fill="#60a5fa" font-size="6">Z2 ⚠</text>
-  <line x1="50" y1="200" x2="50" y2="220" stroke="#64748b" stroke-width="1.5" stroke-dasharray="3,2"/>
-
-  <text x="250" y="312" text-anchor="middle" fill="#64748b" font-size="7">Each zone independently monitored — alarm identifies exact breach location</text>
-</svg>
-<div class="legend">
-  <div class="leg"><div class="dot" style="background:#ef4444"></div>Zone 1 HT</div>
-  <div class="leg"><div class="dot" style="background:#22c55e"></div>Zone 1 Earth</div>
-  <div class="leg"><div class="dot" style="background:#60a5fa"></div>Zone 2 HT</div>
-  <div class="leg"><div class="dot" style="background:#a78bfa"></div>Zone 2 Earth</div>
-</div>
-<div class="desc">A single energizer with a Smart I/O zone card drives two fully independent fence zones. Each zone has its own HT and earth circuit monitored separately. When triggered the alarm panel identifies exactly which zone was breached — critical for large or L-shaped properties where knowing the breach location matters.</div>`;}
+const LEGENDS:Record<string,string[][]>={
+  serpentine:[['#ef4444','HT Live Wire'],['#22c55e','Earth Wire'],['#475569','Fence Post'],['#f59e0b','Energizer']],
+  gate_series:[['#ef4444','HT Live'],['#22c55e','Earth'],['#a78bfa','Gate Post/Contact'],['#94a3b8','Conduit']],
+  gate_bypass:[['#ef4444','HT Live'],['#22c55e','Earth'],['#a78bfa','Gate Posts'],['#60a5fa','Bypass Loop']],
+  corner:[['#ef4444','HT Live'],['#22c55e','Earth'],['#475569','Stay Brace'],['#3b82f6','Bridge Clip']],
+  energizer:[['#ef4444','HT Live (Conduit A)'],['#22c55e','Earth Return (Conduit B)'],['#f59e0b','Energizer/Diverter'],['#f97316','Safety Warning']],
+  multizone:[['#ef4444','Zone 1 HT'],['#22c55e','Zone 1 Earth'],['#60a5fa','Zone 2 HT'],['#a78bfa','Zone 2 Earth']],
+};
 
 export default function DiagramsScreen(){
   const[sel,setSel]=useState('serpentine');
+  const{width}=useWindowDimensions();
   const diag=DIAGRAMS.find(d=>d.id===sel)!;
-  const html=makeHtml(sel);
+  const svg=getSvg(sel);
+  const legend=LEGENDS[sel]||[];
+  const source={html:`<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;box-sizing:border-box;}body{background:#0a0f16;padding:8px;}svg{width:100%;height:auto;display:block;}</style></head><body>${svg}</body></html>`};
   return(
     <View style={s.root}>
       <View style={s.header}>
@@ -494,15 +208,24 @@ export default function DiagramsScreen(){
           </TouchableOpacity>
         ))}
       </ScrollView>
-      <WebView
-        key={sel}
-        source={{html}}
-        style={s.webview}
-        scrollEnabled={true}
-        showsVerticalScrollIndicator={false}
-        originWhitelist={['*']}
-        backgroundColor="#0a0f16"
-      />
+      <ScrollView style={s.body} contentContainerStyle={{padding:12,paddingBottom:40}}>
+        <View style={s.diagCard}>
+          <Text style={s.diagTitle}>{diag.icon}  {diag.title}</Text>
+          <RenderHtml contentWidth={width-24} source={source} baseStyle={{backgroundColor:'#0a0f16'}}/>
+          <View style={s.legend}>
+            {legend.map(([col,lbl])=>(
+              <View key={lbl} style={s.legendItem}>
+                <View style={[s.legendDot,{backgroundColor:col}]}/>
+                <Text style={s.legendTxt}>{lbl}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+        <View style={s.descCard}>
+          <Text style={s.descTitle}>HOW IT WORKS</Text>
+          <Text style={s.desc}>{diag.desc}</Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -517,5 +240,14 @@ const s=StyleSheet.create({
   tabOn:{borderColor:C.energizer,backgroundColor:'#1a1500'},
   tabIcon:{fontSize:16},
   tabTxt:{color:C.muted,fontSize:10,marginTop:2,textAlign:'center'},
-  webview:{flex:1,backgroundColor:'#0a0f16'},
+  body:{flex:1},
+  diagCard:{backgroundColor:C.card,borderRadius:12,padding:12,borderWidth:1,borderColor:C.border,marginBottom:12},
+  diagTitle:{color:C.text,fontSize:15,fontWeight:'bold',marginBottom:10},
+  legend:{flexDirection:'row',flexWrap:'wrap',gap:10,marginTop:10},
+  legendItem:{flexDirection:'row',alignItems:'center',gap:4},
+  legendDot:{width:10,height:10,borderRadius:5},
+  legendTxt:{color:C.muted,fontSize:11},
+  descCard:{backgroundColor:C.card,borderRadius:12,padding:16,borderWidth:1,borderColor:C.border},
+  descTitle:{color:C.energizer,fontSize:10,fontWeight:'bold',letterSpacing:2,marginBottom:8},
+  desc:{color:C.text,fontSize:13,lineHeight:20},
 });
