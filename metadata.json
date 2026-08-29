@@ -1,0 +1,8 @@
+{
+  "name": "FenceSense",
+  "description": "Electric fence analytics, CAD drawing, nodal circuit simulation, fault diagnostics, and procurement calculator.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
