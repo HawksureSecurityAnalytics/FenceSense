@@ -1,15 +1,21 @@
 package com.fencecad.ui.components
 
 import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.rememberTransformableState
-import androidx.compose.foundation.gestures.transformable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CenterFocusStrong
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -26,6 +32,7 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fencecad.model.*
 import com.fencecad.ui.theme.*
@@ -51,7 +58,7 @@ fun CadCanvasView(
 ) {
     var panX by remember { mutableStateOf(canvasState.panX) }
     var panY by remember { mutableStateOf(canvasState.panY) }
-    var scale by remember { mutableStateOf(canvasState.scale) }
+    var scale by remember { mutableStateOf(canvasState.scale.coerceIn(0.25f, 5.0f)) }
 
     // Live wire drawing rubber-band state
     var isDrawingWire by remember { mutableStateOf(false) }
@@ -96,105 +103,161 @@ fun CadCanvasView(
         return Pair(snap(ox), snap(oy))
     }
 
-    val transformState = rememberTransformableState { zoomChange, offsetChange, _ ->
-        scale = (scale * zoomChange).coerceIn(0.35f, 4.0f)
-        panX += offsetChange.x
-        panY += offsetChange.y
-    }
-
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(BgDark)
-            .transformable(state = transformState)
-            .pointerInput(canvasState.tool, nodes, wires, canvasState.isSnapGrid) {
-                detectTapGestures { tapOffset ->
-                    val worldX = (tapOffset.x - panX) / scale
-                    val worldY = (tapOffset.y - panY) / scale
+            .pointerInput(canvasState.tool, nodes, wires, canvasState.isSnapGrid, canvasState.isOrthoEnabled) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var isMultiTouch = false
+                    var isDraggingAction = false
+                    var dragTargetNodeId: String? = null
+                    val startDownPos = down.position
+                    var lastSinglePos = startDownPos
+                    val startTime = System.currentTimeMillis()
 
-                    when (canvasState.tool) {
-                        CanvasTool.PLACE -> {
-                            val comp = canvasState.pendingComponent ?: ComponentType.POST
-                            onPlaceNode(comp, snap(worldX), snap(worldY))
+                    val initialSafeScale = if (scale > 0f) scale else 1.0f
+                    val initialWorldX = (startDownPos.x - panX) / initialSafeScale
+                    val initialWorldY = (startDownPos.y - panY) / initialSafeScale
+                    val touchTolerance = (28f / initialSafeScale).coerceIn(24f, 48f)
+                    val hitNodeOnDown = nodes.find { hypot(it.x - initialWorldX, it.y - initialWorldY) < touchTolerance }
+
+                    if (canvasState.tool == CanvasTool.WIRE || canvasState.tool == CanvasTool.MEASURE) {
+                        val nearNode = nodes.find { hypot(it.x - initialWorldX, it.y - initialWorldY) < 30f }
+                        wireStartX = nearNode?.x ?: snap(initialWorldX)
+                        wireStartY = nearNode?.y ?: snap(initialWorldY)
+                        wireCurrentX = wireStartX
+                        wireCurrentY = wireStartY
+                    } else if (canvasState.tool == CanvasTool.SELECT || canvasState.tool == CanvasTool.PAN) {
+                        if (hitNodeOnDown != null) {
+                            dragTargetNodeId = hitNodeOnDown.id
+                            draggingNodeId = hitNodeOnDown.id
+                            onNodeSelect(hitNodeOnDown.id)
                         }
-                        CanvasTool.DELETE -> {
-                            val hitNode = nodes.find { hypot(it.x - worldX, it.y - worldY) < 26f }
-                            if (hitNode != null) {
-                                onDeleteNode(hitNode.id)
-                                return@detectTapGestures
-                            }
-                            val hitWire = wires.find { distToSegment(worldX, worldY, it.x1, it.y1, it.x2, it.y2) < 16f }
-                            if (hitWire != null) {
-                                onDeleteWire(hitWire.id)
-                            }
-                        }
-                        CanvasTool.FAULT, CanvasTool.SELECT -> {
-                            val hitNode = nodes.find { hypot(it.x - worldX, it.y - worldY) < 26f }
-                            if (hitNode != null) {
-                                onNodeSelect(hitNode.id)
-                            } else {
-                                val hitWire = wires.find { distToSegment(worldX, worldY, it.x1, it.y1, it.x2, it.y2) < 18f }
-                                onWireSelect(hitWire?.id)
-                                if (hitWire == null) onNodeSelect(null)
-                            }
-                        }
-                        CanvasTool.PAN -> {
-                            val hitNode = nodes.find { hypot(it.x - worldX, it.y - worldY) < 26f }
-                            if (hitNode != null) {
-                                onNodeSelect(hitNode.id)
-                            } else {
-                                val hitWire = wires.find { distToSegment(worldX, worldY, it.x1, it.y1, it.x2, it.y2) < 16f }
-                                onWireSelect(hitWire?.id)
-                                if (hitWire == null) onNodeSelect(null)
-                            }
-                        }
-                        CanvasTool.WIRE, CanvasTool.MEASURE -> {}
                     }
-                }
-            }
-            .pointerInput(canvasState.tool, nodes, canvasState.isOrthoEnabled, canvasState.isSnapGrid) {
-                detectDragGestures(
-                    onDragStart = { startOffset ->
-                        val worldX = (startOffset.x - panX) / scale
-                        val worldY = (startOffset.y - panY) / scale
 
-                        if (canvasState.tool == CanvasTool.WIRE || canvasState.tool == CanvasTool.MEASURE) {
-                            val nearNode = nodes.find { hypot(it.x - worldX, it.y - worldY) < 30f }
-                            wireStartX = nearNode?.x ?: snap(worldX)
-                            wireStartY = nearNode?.y ?: snap(worldY)
-                            wireCurrentX = wireStartX
-                            wireCurrentY = wireStartY
-                            isDrawingWire = true
-                        } else if (canvasState.tool == CanvasTool.PAN || canvasState.tool == CanvasTool.SELECT) {
-                            val nearNode = nodes.find { hypot(it.x - worldX, it.y - worldY) < 28f }
-                            if (nearNode != null) {
-                                draggingNodeId = nearNode.id
-                                onNodeSelect(nearNode.id)
-                            }
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val activePointers = event.changes.filter { it.pressed }
+
+                        if (activePointers.isEmpty()) {
+                            break
                         }
-                    },
-                    onDrag = { change, dragAmount ->
-                        change.consume()
-                        if (isDrawingWire) {
-                            val rawX = wireCurrentX + dragAmount.x / scale
-                            val rawY = wireCurrentY + dragAmount.y / scale
-                            val (orthoX, orthoY) = applyOrtho(wireStartX, wireStartY, rawX, rawY)
-                            wireCurrentX = orthoX
-                            wireCurrentY = orthoY
-                        } else if (draggingNodeId != null) {
-                            val targetNode = nodes.find { it.id == draggingNodeId }
-                            if (targetNode != null) {
-                                val newX = snap(targetNode.x + dragAmount.x / scale)
-                                val newY = snap(targetNode.y + dragAmount.y / scale)
-                                onNodeMove(draggingNodeId!!, newX, newY)
+
+                        if (activePointers.size >= 2) {
+                            // Multi-touch Pinch to Zoom & Pan
+                            isMultiTouch = true
+                            if (isDrawingWire) {
+                                isDrawingWire = false
                             }
-                        } else if (canvasState.tool == CanvasTool.PAN) {
-                            panX += dragAmount.x
-                            panY += dragAmount.y
+                            draggingNodeId = null
+                            dragTargetNodeId = null
+
+                            val p0 = activePointers[0].position
+                            val p1 = activePointers[1].position
+                            val prevP0 = activePointers[0].previousPosition
+                            val prevP1 = activePointers[1].previousPosition
+
+                            val currentDist = hypot(p0.x - p1.x, p0.y - p1.y)
+                            val prevDist = hypot(prevP0.x - prevP1.x, prevP0.y - prevP1.y)
+
+                            val centroid = Offset((p0.x + p1.x) / 2f, (p0.y + p1.y) / 2f)
+                            val prevCentroid = Offset((prevP0.x + prevP1.x) / 2f, (prevP0.y + prevP1.y) / 2f)
+                            val panDelta = Offset(centroid.x - prevCentroid.x, centroid.y - prevCentroid.y)
+
+                            if (prevDist > 8f && currentDist > 8f) {
+                                val zoomFactor = currentDist / prevDist
+                                if (zoomFactor.isFinite() && zoomFactor > 0.001f) {
+                                    val oldScale = scale
+                                    val newScale = (oldScale * zoomFactor).coerceIn(0.25f, 5.0f)
+                                    if (oldScale > 0.001f) {
+                                        panX = centroid.x - (centroid.x - panX) * (newScale / oldScale)
+                                        panY = centroid.y - (centroid.y - panY) * (newScale / oldScale)
+                                    }
+                                    scale = newScale
+                                }
+                            }
+                            if (panDelta.x.isFinite()) panX += panDelta.x
+                            if (panDelta.y.isFinite()) panY += panDelta.y
+
+                            activePointers.forEach { it.consume() }
+                        } else if (activePointers.size == 1 && !isMultiTouch) {
+                            val pointer = activePointers[0]
+                            val currentPos = pointer.position
+                            val totalDragDist = hypot(currentPos.x - startDownPos.x, currentPos.y - startDownPos.y)
+
+                            if (totalDragDist > 10f) {
+                                isDraggingAction = true
+                            }
+
+                            if (isDraggingAction) {
+                                val dragDelta = Offset(currentPos.x - lastSinglePos.x, currentPos.y - lastSinglePos.y)
+                                val currentSafeScale = if (scale > 0f) scale else 1.0f
+
+                                if (canvasState.tool == CanvasTool.WIRE || canvasState.tool == CanvasTool.MEASURE) {
+                                    isDrawingWire = true
+                                    val currentWorldX = (currentPos.x - panX) / currentSafeScale
+                                    val currentWorldY = (currentPos.y - panY) / currentSafeScale
+                                    val (orthoX, orthoY) = applyOrtho(wireStartX, wireStartY, currentWorldX, currentWorldY)
+                                    wireCurrentX = orthoX
+                                    wireCurrentY = orthoY
+                                } else if (dragTargetNodeId != null) {
+                                    val targetNode = nodes.find { it.id == dragTargetNodeId }
+                                    if (targetNode != null) {
+                                        val newX = snap(targetNode.x + dragDelta.x / currentSafeScale)
+                                        val newY = snap(targetNode.y + dragDelta.y / currentSafeScale)
+                                        onNodeMove(dragTargetNodeId, newX, newY)
+                                    }
+                                } else if (canvasState.tool == CanvasTool.PAN || canvasState.tool == CanvasTool.SELECT) {
+                                    if (dragDelta.x.isFinite()) panX += dragDelta.x
+                                    if (dragDelta.y.isFinite()) panY += dragDelta.y
+                                }
+                                pointer.consume()
+                            }
+                            lastSinglePos = currentPos
                         }
-                    },
-                    onDragEnd = {
-                        if (isDrawingWire) {
+                    }
+
+                    // Gesture ended
+                    val duration = System.currentTimeMillis() - startTime
+                    val finalSafeScale = if (scale > 0f) scale else 1.0f
+
+                    if (!isMultiTouch) {
+                        if (!isDraggingAction && duration < 500) {
+                            // Single tap
+                            val tapWorldX = (startDownPos.x - panX) / finalSafeScale
+                            val tapWorldY = (startDownPos.y - panY) / finalSafeScale
+
+                            when (canvasState.tool) {
+                                CanvasTool.PLACE -> {
+                                    val comp = canvasState.pendingComponent ?: ComponentType.POST
+                                    onPlaceNode(comp, snap(tapWorldX), snap(tapWorldY))
+                                }
+                                CanvasTool.DELETE -> {
+                                    val hitNode = nodes.find { hypot(it.x - tapWorldX, it.y - tapWorldY) < (28f / finalSafeScale).coerceIn(20f, 40f) }
+                                    if (hitNode != null) {
+                                        onDeleteNode(hitNode.id)
+                                    } else {
+                                        val hitWire = wires.find { distToSegment(tapWorldX, tapWorldY, it.x1, it.y1, it.x2, it.y2) < (18f / finalSafeScale).coerceIn(14f, 30f) }
+                                        if (hitWire != null) {
+                                            onDeleteWire(hitWire.id)
+                                        }
+                                    }
+                                }
+                                CanvasTool.FAULT, CanvasTool.SELECT, CanvasTool.PAN -> {
+                                    val hitNode = nodes.find { hypot(it.x - tapWorldX, it.y - tapWorldY) < (28f / finalSafeScale).coerceIn(20f, 40f) }
+                                    if (hitNode != null) {
+                                        onNodeSelect(hitNode.id)
+                                    } else {
+                                        val hitWire = wires.find { distToSegment(tapWorldX, tapWorldY, it.x1, it.y1, it.x2, it.y2) < (18f / finalSafeScale).coerceIn(14f, 30f) }
+                                        onWireSelect(hitWire?.id)
+                                        if (hitWire == null) onNodeSelect(null)
+                                    }
+                                }
+                                CanvasTool.WIRE, CanvasTool.MEASURE -> {}
+                            }
+                        } else if (isDrawingWire && (canvasState.tool == CanvasTool.WIRE || canvasState.tool == CanvasTool.MEASURE)) {
                             val (orthoX, orthoY) = applyOrtho(wireStartX, wireStartY, wireCurrentX, wireCurrentY)
                             val nearEndNode = nodes.find { hypot(it.x - orthoX, it.y - orthoY) < 30f }
                             val finalX = nearEndNode?.x ?: snap(orthoX)
@@ -203,15 +266,12 @@ fun CadCanvasView(
                             if (hypot(finalX - wireStartX, finalY - wireStartY) > 15f && canvasState.tool == CanvasTool.WIRE) {
                                 onWireDrawn(wireStartX, wireStartY, finalX, finalY)
                             }
-                            isDrawingWire = false
                         }
-                        draggingNodeId = null
-                    },
-                    onDragCancel = {
-                        isDrawingWire = false
-                        draggingNodeId = null
                     }
-                )
+
+                    isDrawingWire = false
+                    draggingNodeId = null
+                }
             }
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -379,6 +439,77 @@ fun CadCanvasView(
                 )
             }
         }
+
+        // 6. Floating On-Screen Zoom & View Controls Overlay
+        Surface(
+            color = BgPanel.copy(alpha = 0.92f),
+            shape = RoundedCornerShape(8.dp),
+            border = BorderStroke(1.dp, BorderDark),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                // Zoom In
+                IconButton(
+                    onClick = {
+                        val newScale = (scale * 1.25f).coerceIn(0.25f, 5.0f)
+                        scale = newScale
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Zoom In", tint = AmberEnergizer, modifier = Modifier.size(18.dp))
+                }
+
+                // Scale percent chip / tap to 100%
+                Surface(
+                    color = BgCard,
+                    shape = RoundedCornerShape(4.dp),
+                    border = BorderStroke(0.8.dp, BorderDark),
+                    modifier = Modifier.clickable {
+                        scale = 1.0f
+                        panX = 0f
+                        panY = 0f
+                    }
+                ) {
+                    Text(
+                        text = "${(scale * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = AmberEnergizer,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                    )
+                }
+
+                // Zoom Out
+                IconButton(
+                    onClick = {
+                        val newScale = (scale * 0.8f).coerceIn(0.25f, 5.0f)
+                        scale = newScale
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Default.Remove, contentDescription = "Zoom Out", tint = AmberEnergizer, modifier = Modifier.size(18.dp))
+                }
+
+                // Reset / Fit
+                IconButton(
+                    onClick = {
+                        scale = 1.0f
+                        panX = 0f
+                        panY = 0f
+                    },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(Icons.Default.CenterFocusStrong, contentDescription = "Center View", tint = TextMuted, modifier = Modifier.size(16.dp))
+                }
+            }
+        }
     }
 }
 
@@ -450,14 +581,16 @@ private fun DrawScope.drawBlueprintUnderlay(
 }
 
 private fun DrawScope.drawCadGrid(panX: Float, panY: Float, scale: Float, w: Float, h: Float) {
+    if (!scale.isFinite() || scale <= 0f) return
     val step = CAD_SNAP * scale
-    if (step < 6f) return
+    if (!step.isFinite() || step < 7f) return
 
-    val startX = (panX % step + step) % step
-    val startY = (panY % step + step) % step
+    val startX = ((panX % step) + step) % step
+    val startY = ((panY % step) + step) % step
 
     var x = startX
-    while (x < w) {
+    var countX = 0
+    while (x < w && countX < 400) {
         drawLine(
             color = BorderDark.copy(alpha = 0.4f),
             start = Offset(x, 0f),
@@ -465,10 +598,12 @@ private fun DrawScope.drawCadGrid(panX: Float, panY: Float, scale: Float, w: Flo
             strokeWidth = 0.6f
         )
         x += step
+        countX++
     }
 
     var y = startY
-    while (y < h) {
+    var countY = 0
+    while (y < h && countY < 400) {
         drawLine(
             color = BorderDark.copy(alpha = 0.4f),
             start = Offset(0f, y),
@@ -476,6 +611,7 @@ private fun DrawScope.drawCadGrid(panX: Float, panY: Float, scale: Float, w: Flo
             strokeWidth = 0.6f
         )
         y += step
+        countY++
     }
 }
 
